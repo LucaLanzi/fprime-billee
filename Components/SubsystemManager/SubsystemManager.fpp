@@ -27,6 +27,9 @@ module Billee {
         @ GPIO pin controlling the auxiliary subsystem
         output port AuxSet: Drv.GpioWrite
 
+        @ GPIO pin reading the E-STOP status input (LOW = on, HIGH = off)
+        output port EStopRead: Drv.GpioRead
+
         # ----------------------------------------------------------------------
         # Commands
         # ----------------------------------------------------------------------
@@ -64,6 +67,12 @@ module Billee {
             id 0 \
             format "Subsystem {} power state set to {}"
 
+        @ Reports the E-STOP status input first being read as HIGH (off)
+        event EStopFirstHighEvent() \
+            severity activity high \
+            id 1 \
+            format "E-STOP status first read as HIGH (off)"
+
         # ----------------------------------------------------------------------
         # Telemetry
         # ----------------------------------------------------------------------
@@ -79,6 +88,9 @@ module Billee {
 
         @ Current power state of the auxiliary subsystem
         telemetry AuxPowerState: Fw.On
+
+        @ Current E-STOP status (ON = pulled low, OFF = high)
+        telemetry E_STOP_Status: Fw.On
 
         # ----------------------------------------------------------------------
         # Standard F Prime ports

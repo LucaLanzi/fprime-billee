@@ -25,7 +25,7 @@ Fw::Logic SubsystemManager::toLogic(const Fw::On state) {
                : Fw::Logic::LOW;
 }
 
-bool SubsystemManager::gpioWriteSucceeded(
+bool SubsystemManager::gpioOpSucceeded(
     const Drv::GpioStatus status
 ) {
     return status == Drv::GpioStatus::OP_OK;
@@ -52,12 +52,12 @@ bool SubsystemManager::setDrivetrainGpios(
     const Drv::GpioStatus drive6Status =
         this->Drive6Set_out(0, state);
     return
-        gpioWriteSucceeded(drive1Status) &&
-        gpioWriteSucceeded(drive2Status) &&
-        gpioWriteSucceeded(drive3Status) &&
-        gpioWriteSucceeded(drive4Status) &&
-        gpioWriteSucceeded(drive5Status) &&
-        gpioWriteSucceeded(drive6Status);
+        gpioOpSucceeded(drive1Status) &&
+        gpioOpSucceeded(drive2Status) &&
+        gpioOpSucceeded(drive3Status) &&
+        gpioOpSucceeded(drive4Status) &&
+        gpioOpSucceeded(drive5Status) &&
+        gpioOpSucceeded(drive6Status);
 }
 
 // ----------------------------------------------------------------------
@@ -85,6 +85,23 @@ void SubsystemManager::run_handler(
 
     this->tlmWrite_AuxPowerState(
         this->m_auxState
+    );
+
+    // Poll the E-STOP status input. LOW = on, HIGH = off (see EStopRead port doc).
+    Fw::Logic eStopLogicState = Fw::Logic::HIGH;
+    const Drv::GpioStatus eStopReadStatus = this->EStopRead_out(0, eStopLogicState);
+
+    if (this->gpioOpSucceeded(eStopReadStatus)) {
+        this->m_eStopState = (eStopLogicState == Fw::Logic::LOW) ? Fw::On::ON : Fw::On::OFF;
+
+        if (eStopLogicState == Fw::Logic::HIGH && !this->m_eStopFirstHighSeen) {
+            this->m_eStopFirstHighSeen = true;
+            this->log_ACTIVITY_HI_EStopFirstHighEvent();
+        }
+    }
+
+    this->tlmWrite_E_STOP_Status(
+        this->m_eStopState
     );
 }
 // ----------------------------------------------------------------------
@@ -140,7 +157,7 @@ void SubsystemManager::SET_ARM_POWER_STATE_cmdHandler(
             this->toLogic(armState)
         );
 
-    if (!this->gpioWriteSucceeded(writeStatus)) {
+    if (!this->gpioOpSucceeded(writeStatus)) {
         this->cmdResponse_out(
             opCode,
             cmdSeq,
@@ -178,7 +195,7 @@ void SubsystemManager::SET_AUX_POWER_STATE_cmdHandler(
             this->toLogic(auxState)
         );
 
-    if (!this->gpioWriteSucceeded(writeStatus)) {
+    if (!this->gpioOpSucceeded(writeStatus)) {
         this->cmdResponse_out(
             opCode,
             cmdSeq,
@@ -216,7 +233,7 @@ void SubsystemManager::SET_SCIENCE_POWER_STATE_cmdHandler(
             this->toLogic(scienceState)
         );
 
-    if (!this->gpioWriteSucceeded(writeStatus)) {
+    if (!this->gpioOpSucceeded(writeStatus)) {
         this->cmdResponse_out(
             opCode,
             cmdSeq,

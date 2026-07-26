@@ -33,7 +33,11 @@ class SubsystemManager final : public SubsystemManagerComponentBase {
     Fw::On m_scienceState = Fw::On::OFF;
     Fw::On m_auxState = Fw::On::OFF;
     static Fw::Logic toLogic(Fw::On state);
-    static bool gpioWriteSucceeded(Drv::GpioStatus status);
+    static bool gpioOpSucceeded(Drv::GpioStatus status);
+
+    // E-STOP status input: LOW = on, HIGH = off (see EStopRead port doc)
+    Fw::On m_eStopState = Fw::On::OFF;
+    bool m_eStopFirstHighSeen = false;
 
     bool setDrivetrainGpios(Fw::Logic state);
     //! Handler implementation for run
