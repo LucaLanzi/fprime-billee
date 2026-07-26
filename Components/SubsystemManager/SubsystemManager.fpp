@@ -21,6 +21,9 @@ module Billee {
         @ GPIO pin controlling the arm subsystem
         output port ArmSet: Drv.GpioWrite
 
+        @ GPIO pin controlling the science subsystem
+        output port ScienceSet: Drv.GpioWrite
+
         @ GPIO pin controlling the auxiliary subsystem
         output port AuxSet: Drv.GpioWrite
 
@@ -42,6 +45,11 @@ module Billee {
         async command SET_AUX_POWER_STATE(
             auxState: Fw.On @< Requested power state
         ) opcode 2
+
+        @ Set the science subsystem power state
+        async command SET_SCIENCE_POWER_STATE(
+            scienceState: Fw.On @< Requested power state
+        ) opcode 3
 
         # ----------------------------------------------------------------------
         # Events
@@ -65,6 +73,9 @@ module Billee {
 
         @ Current power state of the arm subsystem
         telemetry ArmPowerState: Fw.On
+
+        @ Current power state of the science subsystem
+        telemetry SciencePowerState: Fw.On
 
         @ Current power state of the auxiliary subsystem
         telemetry AuxPowerState: Fw.On

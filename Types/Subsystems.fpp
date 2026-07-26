@@ -3,5 +3,6 @@ module Billee{
         DRIVETRAIN = 1 @< Drivetrain subsystem
         ARM = 2 @< Arm subsystem
         AUX = 3 @< Auxiliary subsystem
+        SCIENCE = 4 @< Science subsystem
     }
 }

@@ -3,7 +3,6 @@
 // \author luquito
 // \brief  SubsystemManager component implementation
 // ======================================================================
-
 #include "Components/SubsystemManager/SubsystemManager.hpp"
 
 namespace Billee {
@@ -16,7 +15,6 @@ SubsystemManager::SubsystemManager(const char* const compName)
     : SubsystemManagerComponentBase(compName) {}
 
 SubsystemManager::~SubsystemManager() {}
-
 // ----------------------------------------------------------------------
 // Private helper functions
 // ----------------------------------------------------------------------
@@ -32,7 +30,6 @@ bool SubsystemManager::gpioWriteSucceeded(
 ) {
     return status == Drv::GpioStatus::OP_OK;
 }
-
 bool SubsystemManager::setDrivetrainGpios(
     const Fw::Logic state
 ) {
@@ -46,7 +43,6 @@ bool SubsystemManager::setDrivetrainGpios(
 
     const Drv::GpioStatus drive3Status =
         this->Drive3Set_out(0, state);
-
     const Drv::GpioStatus drive4Status =
         this->Drive4Set_out(0, state);
 
@@ -55,7 +51,6 @@ bool SubsystemManager::setDrivetrainGpios(
 
     const Drv::GpioStatus drive6Status =
         this->Drive6Set_out(0, state);
-
     return
         gpioWriteSucceeded(drive1Status) &&
         gpioWriteSucceeded(drive2Status) &&
@@ -68,7 +63,6 @@ bool SubsystemManager::setDrivetrainGpios(
 // ----------------------------------------------------------------------
 // Handler implementations for typed input ports
 // ----------------------------------------------------------------------
-
 void SubsystemManager::run_handler(
     FwIndexType portNum,
     U32 context
@@ -85,11 +79,14 @@ void SubsystemManager::run_handler(
         this->m_armState
     );
 
+    this->tlmWrite_SciencePowerState(
+        this->m_scienceState
+    );
+
     this->tlmWrite_AuxPowerState(
         this->m_auxState
     );
 }
-
 // ----------------------------------------------------------------------
 // Handler implementations for commands
 // ----------------------------------------------------------------------
@@ -103,7 +100,6 @@ void SubsystemManager::SET_DRIVETRAIN_POWER_STATE_cmdHandler(
         this->setDrivetrainGpios(
             this->toLogic(driveState)
         );
-
     if (!writeSuccessful) {
         this->cmdResponse_out(
             opCode,
@@ -120,7 +116,6 @@ void SubsystemManager::SET_DRIVETRAIN_POWER_STATE_cmdHandler(
             Billee::Subsystems::DRIVETRAIN,
             driveState
         );
-
         // Optional immediate telemetry update. The run handler will also
         // periodically publish the state.
         this->tlmWrite_DrivetrainPowerState(
@@ -134,7 +129,6 @@ void SubsystemManager::SET_DRIVETRAIN_POWER_STATE_cmdHandler(
         Fw::CmdResponse::OK
     );
 }
-
 void SubsystemManager::SET_ARM_POWER_STATE_cmdHandler(
     FwOpcodeType opCode,
     U32 cmdSeq,
@@ -154,7 +148,6 @@ void SubsystemManager::SET_ARM_POWER_STATE_cmdHandler(
         );
         return;
     }
-
     if (armState != this->m_armState) {
         this->m_armState = armState;
 
@@ -174,7 +167,6 @@ void SubsystemManager::SET_ARM_POWER_STATE_cmdHandler(
         Fw::CmdResponse::OK
     );
 }
-
 void SubsystemManager::SET_AUX_POWER_STATE_cmdHandler(
     FwOpcodeType opCode,
     U32 cmdSeq,
@@ -194,7 +186,6 @@ void SubsystemManager::SET_AUX_POWER_STATE_cmdHandler(
         );
         return;
     }
-
     if (auxState != this->m_auxState) {
         this->m_auxState = auxState;
 
@@ -205,6 +196,44 @@ void SubsystemManager::SET_AUX_POWER_STATE_cmdHandler(
 
         this->tlmWrite_AuxPowerState(
             this->m_auxState
+        );
+    }
+
+    this->cmdResponse_out(
+        opCode,
+        cmdSeq,
+        Fw::CmdResponse::OK
+    );
+}
+void SubsystemManager::SET_SCIENCE_POWER_STATE_cmdHandler(
+    FwOpcodeType opCode,
+    U32 cmdSeq,
+    Fw::On scienceState
+) {
+    const Drv::GpioStatus writeStatus =
+        this->ScienceSet_out(
+            0,
+            this->toLogic(scienceState)
+        );
+
+    if (!this->gpioWriteSucceeded(writeStatus)) {
+        this->cmdResponse_out(
+            opCode,
+            cmdSeq,
+            Fw::CmdResponse::EXECUTION_ERROR
+        );
+        return;
+    }
+    if (scienceState != this->m_scienceState) {
+        this->m_scienceState = scienceState;
+
+        this->log_ACTIVITY_HI_SubsystemPowerModeEvent(
+            Billee::Subsystems::SCIENCE,
+            scienceState
+        );
+
+        this->tlmWrite_SciencePowerState(
+            this->m_scienceState
         );
     }
 
