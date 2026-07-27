@@ -21,6 +21,18 @@ const char* locationForIndex(U8 index) {
     }
 }
 
+Billee::McpSensorId sensorIdForIndex(U8 index) {
+    switch (index) {
+        case 0:
+            return Billee::McpSensorId::LOGIC_TEMP;
+        case 1:
+            return Billee::McpSensorId::DRIVE_TEMP;
+        case 2:
+        default:
+            return Billee::McpSensorId::ARM_SCI_TEMP;
+    }
+}
+
 // Converts the raw 2-byte MCP9808 ambient temperature register into degrees Celsius.
 F32 convertRawTemp(const U8* rawData) {
     U8 upperByte = rawData[0] & 0x1F;  // Clear flag bits, keep only temperature data
@@ -78,23 +90,22 @@ void McpManager ::Billee_ThermalStateMachine_action_doRead(SmId smId, Billee_The
 
     for (U8 i = 0; i < 3; i++) {
         F32 tempCelsius = 0.0f;
-        if (this->readTemp(this->deviceAddrs[i], tempCelsius)) {
+        this->m_sensorOk[i] = this->readTemp(this->deviceAddrs[i], tempCelsius);
+        if (this->m_sensorOk[i]) {
             this->m_thermalReadings[i].set_temperature(tempCelsius);
         } else {
             this->m_thermalReadings[i].set_temperature(0.0f);
             this->m_successfulRead = false;
         }
 
-        this->m_thermalReadings[i].set_sensorId(i + 1);
+        this->m_thermalReadings[i].set_sensorId(sensorIdForIndex(i));
         this->m_thermalReadings[i].set_timestamp(this->getTime().getSeconds() - this->m_startTime);
         this->m_thermalReadings[i].set_location(Fw::String(locationForIndex(i)));
     }
 
+    // Either way, telemetry is always published (see doEvaluate/doReadFail/publishReadings):
+    // a failed sensor just reports tempState FAILURE instead of being silently skipped.
     if (this->m_successfulRead) {
-        if (this->m_wasFailed) {
-            this->m_wasFailed = false;
-            this->log_ACTIVITY_HI_McpReadRecovered();
-        }
         this->mcp_thermalStateMachine_sendSignal_success();
     } else {
         this->mcp_thermalStateMachine_sendSignal_fail();
@@ -103,27 +114,17 @@ void McpManager ::Billee_ThermalStateMachine_action_doRead(SmId smId, Billee_The
 
 void McpManager ::Billee_ThermalStateMachine_action_doEvaluate(SmId smId,
                                                                 Billee_ThermalStateMachine::Signal signal) {
+    if (this->m_wasFailed) {
+        this->m_wasFailed = false;
+        this->log_ACTIVITY_HI_McpReadRecovered();
+    }
+
     for (U8 i = 0; i < 3; i++) {
         const Billee::ThermalStates tempState = this->determineTempState(this->m_thermalReadings[i].get_temperature());
         this->m_thermalReadings[i].set_tempState(tempState);
-        switch (i) {
-            case 0:
-                this->tlmWrite_LOGIC_TEMP(this->m_thermalReadings[0]);
-                this->thermalReadingOut_out(0, Billee::Subsystems::LOGIC, this->m_thermalReadings[0]);
-                break;
-            case 1:
-                this->tlmWrite_DRIVE_TEMP(this->m_thermalReadings[1]);
-                this->thermalReadingOut_out(0, Billee::Subsystems::DRIVETRAIN, this->m_thermalReadings[1]);
-                break;
-            case 2:
-                this->tlmWrite_ARM_SCI_TEMP(this->m_thermalReadings[2]);
-                this->thermalReadingOut_out(0, Billee::Subsystems::ARM, this->m_thermalReadings[2]);
-                this->thermalReadingOut_out(0, Billee::Subsystems::SCIENCE, this->m_thermalReadings[2]);
-                break;
-            default:
-                break;
-        }
     }
+    this->publishReadings();
+
     this->mcp_thermalStateMachine_sendSignal_success();  // Loop back to read again on the next tick
 }
 
@@ -133,6 +134,16 @@ void McpManager ::Billee_ThermalStateMachine_action_doReadFail(SmId smId,
         this->m_wasFailed = true;
         this->log_WARNING_HI_McpReadFailure();
     }
+
+    for (U8 i = 0; i < 3; i++) {
+        Billee::ThermalStates tempState = Billee::ThermalStates::FAILURE;
+        if (this->m_sensorOk[i]) {
+            tempState = this->determineTempState(this->m_thermalReadings[i].get_temperature());
+        }
+        this->m_thermalReadings[i].set_tempState(tempState);
+    }
+    this->publishReadings();
+
     this->m_successfulRead = true;  // Reset so the next tick tries reading again
     this->mcp_thermalStateMachine_sendSignal_success();
 }
@@ -184,6 +195,18 @@ bool McpManager ::readTemp(U8 deviceAddr, F32& temperature) {
 
     temperature = convertRawTemp(rawData);
     return true;
+}
+
+void McpManager ::publishReadings() {
+    this->tlmWrite_LOGIC_TEMP(this->m_thermalReadings[0]);
+    this->thermalReadingOut_out(0, Billee::Subsystems::LOGIC, this->m_thermalReadings[0]);
+
+    this->tlmWrite_DRIVE_TEMP(this->m_thermalReadings[1]);
+    this->thermalReadingOut_out(0, Billee::Subsystems::DRIVETRAIN, this->m_thermalReadings[1]);
+
+    this->tlmWrite_ARM_SCI_TEMP(this->m_thermalReadings[2]);
+    this->thermalReadingOut_out(0, Billee::Subsystems::ARM, this->m_thermalReadings[2]);
+    this->thermalReadingOut_out(0, Billee::Subsystems::SCIENCE, this->m_thermalReadings[2]);
 }
 
 Billee::ThermalStates McpManager ::determineTempState(F32 tempCelsius) {

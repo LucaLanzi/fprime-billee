@@ -32,10 +32,16 @@ class InaManager final : public InaManagerComponentBase {
     //! readings forwarded to FPManager via powerReadingOut
     Billee::Subsystems subsystemForIndex[NUM_SENSORS];
 
+    //! Enumerated sensor identity for each index (index-aligned with deviceAddrs), used to
+    //! populate PowerReading::sourceId
+    Billee::InaSensorId sensorIdForIndex[NUM_SENSORS];
+
     // INA780B register addresses (datasheet Table 7-5)
     static constexpr U8 REG_VBUS = 0x05;     //!< 16-bit, 3.125 mV/LSB
     static constexpr U8 REG_DIETEMP = 0x06;  //!< 16-bit (top 12 bits used), 125 m°C/LSB
     static constexpr U8 REG_CURRENT = 0x07;  //!< 16-bit signed, 2.4 mA/LSB
+    static constexpr U8 REG_MANUFACTURER_ID = 0x3E;  //!< 16-bit, fixed "TI" ASCII, reset = 5449h
+    static constexpr U16 EXPECTED_MANUFACTURER_ID = 0x5449;
     static constexpr U8 REG_POWER = 0x08;    //!< 24-bit unsigned, 480 uW/LSB
 
   public:

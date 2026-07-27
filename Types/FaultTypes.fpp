@@ -10,6 +10,7 @@ module Billee {
         OVERVOLTAGE = 2 @< Bus voltage exceeded the configured 6S LiPo cutoff
         OVERTEMP = 3 @< Thermal sensor reported a FAULT-level temperature state
         OVERCURRENT = 4 @< Current draw exceeded the configured cutoff
+        SENSOR_FAILURE = 5 @< Thermal sensor reported a FAILURE state (not connected/detected)
     }
 
     @ Commands the receiving component (SubsystemManager) to set a subsystem's power state.

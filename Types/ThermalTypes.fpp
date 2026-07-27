@@ -5,12 +5,20 @@ module Billee{
         WARN = 2 @< System in WARN mode
         FAULT = 3 @< System in FAULT mode
         NOT_USED = 0 @< Sensor is unavailable or should not be considered
+        FAILURE = 4 @< Sensor read failed (e.g. not connected/detected)
+    }
+
+    @ Identifies which physical MCP9808 sensor a ThermalReading came from
+    enum McpSensorId: U8 {
+        LOGIC_TEMP = 1 @< Logic board MCP9808 (I2C1, 0x18)
+        DRIVE_TEMP = 2 @< Drivetrain MCP9808 (I2C1, 0x19)
+        ARM_SCI_TEMP = 3 @< Arm/science MCP9808 (I2C1, 0x1A)
     }
 
     struct ThermalReading {
         temperature: F32 @< Temperature in degrees Celsius
         tempState: ThermalStates @< State of the sensor
-        sensorId: U8 @< ID of the thermal sensor
+        sensorId: McpSensorId @< Which physical sensor this reading came from
         location: string size 32 @< Description of sensor location
         timestamp: U32 @< Timestamp of reading
     }

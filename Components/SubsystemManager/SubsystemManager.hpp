@@ -37,7 +37,6 @@ class SubsystemManager final : public SubsystemManagerComponentBase {
 
     // E-STOP status input: LOW = on, HIGH = off (see EStopRead port doc)
     Fw::On m_eStopState = Fw::On::OFF;
-    bool m_eStopFirstHighSeen = false;
 
     bool setDrivetrainGpios(Fw::Logic state);
     //! Handler implementation for run

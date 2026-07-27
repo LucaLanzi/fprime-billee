@@ -92,12 +92,17 @@ void SubsystemManager::run_handler(
     const Drv::GpioStatus eStopReadStatus = this->EStopRead_out(0, eStopLogicState);
 
     if (this->gpioOpSucceeded(eStopReadStatus)) {
-        this->m_eStopState = (eStopLogicState == Fw::Logic::LOW) ? Fw::On::ON : Fw::On::OFF;
+        const Fw::On newEStopState = (eStopLogicState == Fw::Logic::LOW) ? Fw::On::ON : Fw::On::OFF;
 
-        if (eStopLogicState == Fw::Logic::HIGH && !this->m_eStopFirstHighSeen) {
-            this->m_eStopFirstHighSeen = true;
-            this->log_ACTIVITY_HI_EStopFirstHighEvent();
+        if (newEStopState != this->m_eStopState) {
+            if (newEStopState == Fw::On::ON) {
+                this->log_WARNING_HI_EStopEngaged();
+            } else {
+                this->log_ACTIVITY_HI_EStopReleased();
+            }
         }
+
+        this->m_eStopState = newEStopState;
     }
 
     this->tlmWrite_E_STOP_Status(

@@ -71,11 +71,19 @@ module Billee {
             id 0 \
             format "Subsystem {} power state set to {}"
 
-        @ Reports the E-STOP status input first being read as HIGH (off)
-        event EStopFirstHighEvent() \
-            severity activity high \
+        @ Reports the E-STOP being engaged (status input read LOW). Fires once per transition,
+        @ not on every poll cycle.
+        event EStopEngaged() \
+            severity warning high \
             id 1 \
-            format "E-STOP status first read as HIGH (off)"
+            format "E-STOP engaged"
+
+        @ Reports the E-STOP being released (status input read HIGH). Fires once per
+        @ transition, not on every poll cycle.
+        event EStopReleased() \
+            severity activity high \
+            id 2 \
+            format "E-STOP released"
 
         # ----------------------------------------------------------------------
         # Telemetry

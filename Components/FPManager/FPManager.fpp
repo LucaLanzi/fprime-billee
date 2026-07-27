@@ -4,20 +4,43 @@ module Billee {
     @ subsystem power (InaManager) and thermal (McpManager) sensors: 6S LiPo
     @ bus-voltage protection (in addition to the existing hardware failsafe) and
     @ thermal-fault protection. On a fault, commands SubsystemManager to power off
-    @ the affected subsystem and logs the reason. Passive: it reacts to readings
-    @ pushed in by InaManager/McpManager rather than polling on its own schedule.
-    passive component FPManager {
+    @ the affected subsystem and logs the reason. Active (state machines require an
+    @ owning thread): reacts to readings pushed in by InaManager/McpManager rather
+    @ than polling on its own schedule.
+    active component FPManager {
+
+        # ----------------------------------------------------------------------
+        # State machine instances: one per monitored subsystem, tracking the
+        # combined power+thermal fault status independently for each
+        # ----------------------------------------------------------------------
+
+        @ Fault-protection state machine for the drivetrain subsystem
+        state machine instance fp_drivetrainSM: FPStateMachine
+
+        @ Fault-protection state machine for the arm subsystem
+        state machine instance fp_armSM: FPStateMachine
+
+        @ Fault-protection state machine for the science subsystem
+        state machine instance fp_scienceSM: FPStateMachine
+
+        @ Fault-protection state machine for the logic board (monitoring only)
+        state machine instance fp_logicSM: FPStateMachine
 
         # ----------------------------------------------------------------------
         # Ports
         # ----------------------------------------------------------------------
 
-        @ Power (voltage/current) reading from InaManager, called once per sensor per poll cycle
-        guarded input port powerReadingIn: Billee.PowerReadingPort
+        @ Power (voltage/current) reading from InaManager, called once per sensor per poll cycle.
+        @ InaManager fires 9 of these back-to-back in a single run_handler call, so this must
+        @ tolerate a burst larger than one message; `drop` (instead of the default assert-on-
+        @ overflow) means a burst that outruns the queue just loses a stale reading rather than
+        @ crashing the whole rate group -- unacceptable for a fault-protection component.
+        async input port powerReadingIn: Billee.PowerReadingPort drop
 
         @ Thermal reading from McpManager, called once per sensor per poll cycle (the shared
-        @ arm/science sensor arrives twice: once tagged ARM, once tagged SCIENCE)
-        guarded input port thermalReadingIn: Billee.ThermalReadingPort
+        @ arm/science sensor arrives twice: once tagged ARM, once tagged SCIENCE). See
+        @ powerReadingIn above for why this uses `drop`.
+        async input port thermalReadingIn: Billee.ThermalReadingPort drop
 
         @ Commands SubsystemManager to power off a subsystem that has tripped a fault
         output port emergencyPowerOffOut: Billee.SetPowerState

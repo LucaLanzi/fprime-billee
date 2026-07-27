@@ -38,6 +38,16 @@ InaManager ::InaManager(const char* const compName) : InaManagerComponentBase(co
     subsystemForIndex[6] = Billee::Subsystems::ARM;
     subsystemForIndex[7] = Billee::Subsystems::SCIENCE;
     subsystemForIndex[8] = Billee::Subsystems::LOGIC;
+
+    sensorIdForIndex[0] = Billee::InaSensorId::DRIVE1;
+    sensorIdForIndex[1] = Billee::InaSensorId::DRIVE2;
+    sensorIdForIndex[2] = Billee::InaSensorId::DRIVE3;
+    sensorIdForIndex[3] = Billee::InaSensorId::DRIVE4;
+    sensorIdForIndex[4] = Billee::InaSensorId::DRIVE5;
+    sensorIdForIndex[5] = Billee::InaSensorId::DRIVE6;
+    sensorIdForIndex[6] = Billee::InaSensorId::ARM;
+    sensorIdForIndex[7] = Billee::InaSensorId::SCIENCE;
+    sensorIdForIndex[8] = Billee::InaSensorId::LOGIC;
 }
 
 InaManager ::~InaManager() {}
@@ -56,15 +66,16 @@ void InaManager ::run_handler(FwIndexType portNum, U32 context) {
     bool anyFailed = false;
     for (U8 i = 0; i < NUM_SENSORS; i++) {
         Billee::PowerReading& reading = this->m_powerReadings[i];
-        reading.set_sourceId(this->deviceAddrs[i]);
+        reading.set_sourceId(this->sensorIdForIndex[i]);
         reading.set_timestamp(timestamp);
 
-        if (this->readSensor(this->deviceAddrs[i], reading)) {
-            this->writeTelemetry(i, reading);
-            this->powerReadingOut_out(0, this->subsystemForIndex[i], reading);
-        } else {
+        if (!this->readSensor(this->deviceAddrs[i], reading)) {
             anyFailed = true;
         }
+        // Always publish, even on failure: `reading` retains its last-known (or zeroed, if this
+        // is the first-ever read) values, so the channel/FPManager never silently goes stale.
+        this->writeTelemetry(i, reading);
+        this->powerReadingOut_out(0, this->subsystemForIndex[i], reading);
     }
 
     if (anyFailed) {
@@ -114,6 +125,16 @@ bool InaManager ::readRegister24(U8 deviceAddr, U8 registerAddr, U32& value) {
 }
 
 bool InaManager ::readSensor(U8 deviceAddr, Billee::PowerReading& reading) {
+    // On a floating/unpopulated I2C0 bus, i2c_write_read() has been observed to falsely report
+    // success (with all-zero register content) instead of NACKing like a genuinely absent device
+    // should. MANUFACTURER_ID is a fixed, read-only "TI" ASCII value baked into the silicon, so
+    // checking it catches that case regardless of what the I2C status code claims.
+    U16 manufacturerId = 0;
+    if (!this->readRegister16(deviceAddr, REG_MANUFACTURER_ID, manufacturerId) ||
+        manufacturerId != EXPECTED_MANUFACTURER_ID) {
+        return false;
+    }
+
     U16 rawVbus = 0;
     U16 rawCurrent = 0;
     U32 rawPower = 0;

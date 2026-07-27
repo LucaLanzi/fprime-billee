@@ -5,4 +5,5 @@ register_fprime_library(
         "${CMAKE_CURRENT_LIST_DIR}/FPManager.cpp"
     DEPENDS
       Types
+      StateMachines_FPStateMachine
 )

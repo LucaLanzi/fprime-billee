@@ -44,36 +44,67 @@ class FPManager final : public FPManagerComponentBase {
 
   private:
     // ----------------------------------------------------------------------
-    // Per-subsystem fault-tracking state
+    // Implementations for internal state machine guards
     // ----------------------------------------------------------------------
 
-    //! Latest voltage/thermal fault inputs and the latched overall state for one subsystem.
-    //! Voltage and thermal readings arrive independently and asynchronously; the latched
-    //! state is only re-evaluated (and acted on) when either input changes.
-    struct FaultTracking {
-        bool voltageFault = false;
-        bool currentFault = false;
-        bool thermalFault = false;
-        bool latched = false;
-        Billee::FaultReason voltageReason = Billee::FaultReason::UNDERVOLTAGE;
+    //! True if the incoming power reading, combined with this subsystem's last-known thermal
+    //! status, means the subsystem should be (or remain) faulted
+    bool Billee_FPStateMachine_guard_isPowerFault(SmId smId,
+                                                  Billee_FPStateMachine::Signal signal,
+                                                  const Billee::PowerReading& data) const override;
+
+    //! True if the incoming thermal reading, combined with this subsystem's last-known power
+    //! status, means the subsystem should be (or remain) faulted
+    bool Billee_FPStateMachine_guard_isThermalFault(SmId smId,
+                                                    Billee_FPStateMachine::Signal signal,
+                                                    const Billee::ThermalReading& data) const override;
+
+    // ----------------------------------------------------------------------
+    // Implementations for internal state machine actions
+    // ----------------------------------------------------------------------
+
+    //! Trip a fault caused by a voltage/current violation: command the subsystem off (if
+    //! controllable) and log why
+    void Billee_FPStateMachine_action_doTripFromPower(SmId smId,
+                                                      Billee_FPStateMachine::Signal signal,
+                                                      const Billee::PowerReading& data) override;
+
+    //! Trip a fault caused by a thermal violation: command the subsystem off (if controllable)
+    //! and log why
+    void Billee_FPStateMachine_action_doTripFromThermal(SmId smId,
+                                                        Billee_FPStateMachine::Signal signal,
+                                                        const Billee::ThermalReading& data) override;
+
+    //! Clear a previously-tripped fault and log the recovery
+    void Billee_FPStateMachine_action_doClear(SmId smId, Billee_FPStateMachine::Signal signal) override;
+
+  private:
+    // ----------------------------------------------------------------------
+    // Per-subsystem fault-domain cache
+    // ----------------------------------------------------------------------
+
+    //! Each state machine instance only receives ONE domain's data per signal; this cache
+    //! remembers the OTHER domain's last-known status so a guard can still correctly combine
+    //! both when deciding the overall fault condition.
+    struct FaultCache {
+        bool powerFaulted = false;
+        bool thermalFaulted = false;
     };
 
-    FaultTracking m_drivetrain;
-    FaultTracking m_arm;
-    FaultTracking m_science;
-    FaultTracking m_logic;  //!< Monitoring only: LOGIC has no power control (it runs FPManager)
+    FaultCache m_drivetrainCache;
+    FaultCache m_armCache;
+    FaultCache m_scienceCache;
+    FaultCache m_logicCache;  //!< Monitoring only: LOGIC has no power control (it runs FPManager)
 
-    //! Returns the tracking state for a subsystem, or nullptr if FPManager doesn't monitor it
-    //! (e.g. AUX, which has no power or thermal sensor coverage).
-    FaultTracking* trackingFor(Billee::Subsystems subsystem);
+    FaultCache& cacheFor(SmId smId);
+    const FaultCache& cacheFor(SmId smId) const;
 
-    //! Re-checks the combined (voltage OR thermal) fault condition for a subsystem against its
-    //! latched state, acting (and logging) only on a state transition (edge-triggered), then
-    //! publishes the resulting telemetry.
-    void evaluate(FaultTracking& tracking, Billee::Subsystems subsystem);
+    static Billee::Subsystems subsystemFor(SmId smId);
+    static bool isControllable(SmId smId);
+    void writeFaultStateTelemetry(SmId smId, Billee::FaultState state);
 
     // ----------------------------------------------------------------------
-    // 6S LiPo bus-voltage protection thresholds (cached copies of the params)
+    // 6S LiPo bus-voltage + overcurrent protection thresholds (cached copies of the params)
     // ----------------------------------------------------------------------
 
     bool m_paramsLoaded = false;
@@ -82,10 +113,12 @@ class FPManager final : public FPManagerComponentBase {
     F32 m_currentFaultHigh = 0.0f;
     Fw::ParamValid m_paramIsValid = Fw::ParamValid::VALID;
 
-    //! Lazily loads params on first use (PrmDb is only guaranteed loaded once the topology
-    //! has finished starting up, which has already happened by the time any sensor reading
-    //! reaches this passive component).
+    //! Lazily loads params on first use (guards are const and cannot call the non-const
+    //! paramGet, so the handlers load/cache them here, before signaling the state machine)
     void loadParamsIfNeeded();
+
+    //! Publishes the current threshold values to telemetry
+    void publishThresholdTelemetry();
 };
 
 }  // namespace Billee

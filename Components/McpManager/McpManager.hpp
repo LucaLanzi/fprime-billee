@@ -52,6 +52,8 @@ class McpManager final : public McpManagerComponentBase {
     bool m_justBooted;
     bool m_successfulRead;  // Flag to track whether the most recent read was successful, used to determine
                              // state machine transitions
+    bool m_sensorOk[3] = {false, false, false};  // Per-sensor result of the most recent read, so doEvaluate/
+                                                  // doReadFail can tell which sensors failed this cycle
     bool m_wasFailed = false;  // Latches so McpReadFailure/McpReadRecovered fire once per transition,
                                // instead of every poll cycle the sensors remain disconnected
     U32 m_startTime = 0;
@@ -107,6 +109,12 @@ class McpManager final : public McpManagerComponentBase {
 
     //! Determine the temperature state (IDLE, WARN, FAULT) based on the temperature in Celsius
     Billee::ThermalStates determineTempState(F32 tempCelsius);
+
+    //! Write all 3 thermal telemetry channels and forward them to FPManager. Called from both
+    //! doEvaluate (all sensors read successfully) and doReadFail (at least one sensor failed) so
+    //! the channels are always populated, using tempState FAILURE for any sensor that failed
+    //! this cycle.
+    void publishReadings();
 };
 
 }  // namespace Billee
