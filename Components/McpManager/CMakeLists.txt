@@ -1,0 +1,9 @@
+register_fprime_library(
+    AUTOCODER_INPUTS
+        "${CMAKE_CURRENT_LIST_DIR}/McpManager.fpp"
+    SOURCES
+        "${CMAKE_CURRENT_LIST_DIR}/McpManager.cpp"
+    DEPENDS
+      Types
+      StateMachines_ThermalStateMachine
+)

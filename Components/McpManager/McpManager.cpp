@@ -1,0 +1,189 @@
+// ======================================================================
+// \title  McpManager.cpp
+// \brief  cpp file for McpManager component implementation class
+// ======================================================================
+
+#include "Components/McpManager/McpManager.hpp"
+
+namespace Billee {
+
+namespace {
+const char* locationForIndex(U8 index) {
+    switch (index) {
+        case 0:
+            return "Logic";
+        case 1:
+            return "Drivetrain";
+        case 2:
+            return "ArmScience";
+        default:
+            return "Unknown";
+    }
+}
+
+// Converts the raw 2-byte MCP9808 ambient temperature register into degrees Celsius.
+F32 convertRawTemp(const U8* rawData) {
+    U8 upperByte = rawData[0] & 0x1F;  // Clear flag bits, keep only temperature data
+    const U8 lowerByte = rawData[1];
+
+    if ((upperByte & 0x10) == 0x10) {  // Sign bit set: negative temperature
+        upperByte &= 0x0F;             // Clear sign bit
+        return 256.0f - ((upperByte * 16.0f) + (lowerByte / 16.0f));
+    }
+    return (upperByte * 16.0f) + (lowerByte / 16.0f);
+}
+}  // namespace
+
+// ----------------------------------------------------------------------
+// Component construction and destruction
+// ----------------------------------------------------------------------
+
+McpManager ::McpManager(const char* const compName)
+    : McpManagerComponentBase(compName), m_justBooted(true), m_successfulRead(true) {
+    deviceAddrs[0] = LOGIC_TEMP_ADDR;
+    deviceAddrs[1] = DRIVE_TEMP_ADDR;
+    deviceAddrs[2] = ARM_SCI_TEMP_ADDR;
+}
+
+McpManager ::~McpManager() {}
+
+// ----------------------------------------------------------------------
+// Handler implementations for typed input ports
+// ----------------------------------------------------------------------
+
+void McpManager ::run_handler(FwIndexType portNum, U32 context) {
+    this->mcp_thermalStateMachine_sendSignal_tick();
+}
+
+// ----------------------------------------------------------------------
+// Implementations for internal state machine actions
+// ----------------------------------------------------------------------
+
+void McpManager ::Billee_ThermalStateMachine_action_doRead(SmId smId, Billee_ThermalStateMachine::Signal signal) {
+    if (this->m_justBooted) {
+        this->m_justBooted = false;
+        this->m_startTime = this->getTime().getSeconds();  // Record boot time to track uptime in telemetry
+
+        this->IDLE_LOW_THR = this->paramGet_MCP_IDLE_LOW(m_paramIsValid);
+        this->IDLE_HIGH_THR = this->paramGet_MCP_IDLE_HIGH(m_paramIsValid);
+        this->WARN_LOW_THR = this->paramGet_MCP_WARN_LOW(m_paramIsValid);
+        this->WARN_HIGH_THR = this->paramGet_MCP_WARN_HIGH(m_paramIsValid);
+        this->FAULT_LOW_THR = this->paramGet_MCP_FAULT_LOW(m_paramIsValid);
+        this->FAULT_HIGH_THR = this->paramGet_MCP_FAULT_HIGH(m_paramIsValid);
+
+        // Skip straight to a read on the very next tick rather than waiting a full cycle idle.
+        this->mcp_thermalStateMachine_sendSignal_success();
+        return;
+    }
+
+    for (U8 i = 0; i < 3; i++) {
+        F32 tempCelsius = 0.0f;
+        if (this->readTemp(this->deviceAddrs[i], tempCelsius)) {
+            this->m_thermalReadings[i].set_temperature(tempCelsius);
+        } else {
+            this->m_thermalReadings[i].set_temperature(0.0f);
+            this->m_successfulRead = false;
+        }
+
+        this->m_thermalReadings[i].set_sensorId(i + 1);
+        this->m_thermalReadings[i].set_timestamp(this->getTime().getSeconds() - this->m_startTime);
+        this->m_thermalReadings[i].set_location(Fw::String(locationForIndex(i)));
+    }
+
+    if (this->m_successfulRead) {
+        this->mcp_thermalStateMachine_sendSignal_success();
+    } else {
+        this->mcp_thermalStateMachine_sendSignal_fail();
+    }
+}
+
+void McpManager ::Billee_ThermalStateMachine_action_doEvaluate(SmId smId,
+                                                                Billee_ThermalStateMachine::Signal signal) {
+    for (U8 i = 0; i < 3; i++) {
+        const Billee::ThermalStates tempState = this->determineTempState(this->m_thermalReadings[i].get_temperature());
+        this->m_thermalReadings[i].set_tempState(tempState);
+        switch (i) {
+            case 0:
+                this->tlmWrite_LOGIC_TEMP(this->m_thermalReadings[0]);
+                break;
+            case 1:
+                this->tlmWrite_DRIVE_TEMP(this->m_thermalReadings[1]);
+                break;
+            case 2:
+                this->tlmWrite_ARM_SCI_TEMP(this->m_thermalReadings[2]);
+                break;
+            default:
+                break;
+        }
+    }
+    this->mcp_thermalStateMachine_sendSignal_success();  // Loop back to read again on the next tick
+}
+
+void McpManager ::Billee_ThermalStateMachine_action_doReadFail(SmId smId,
+                                                                Billee_ThermalStateMachine::Signal signal) {
+    this->log_WARNING_HI_McpReadFailure();
+    this->m_successfulRead = true;  // Reset so the next tick tries reading again
+    this->mcp_thermalStateMachine_sendSignal_success();
+}
+
+// ----------------------------------------------------------------------
+// Handler implementations for parameters update
+// ----------------------------------------------------------------------
+
+void McpManager ::parameterUpdated(FwPrmIdType id) {
+    switch (id) {
+        case PARAMID_MCP_IDLE_LOW:
+            this->IDLE_LOW_THR = this->paramGet_MCP_IDLE_LOW(m_paramIsValid);
+            break;
+        case PARAMID_MCP_IDLE_HIGH:
+            this->IDLE_HIGH_THR = this->paramGet_MCP_IDLE_HIGH(m_paramIsValid);
+            break;
+        case PARAMID_MCP_WARN_LOW:
+            this->WARN_LOW_THR = this->paramGet_MCP_WARN_LOW(m_paramIsValid);
+            break;
+        case PARAMID_MCP_WARN_HIGH:
+            this->WARN_HIGH_THR = this->paramGet_MCP_WARN_HIGH(m_paramIsValid);
+            break;
+        case PARAMID_MCP_FAULT_LOW:
+            this->FAULT_LOW_THR = this->paramGet_MCP_FAULT_LOW(m_paramIsValid);
+            break;
+        case PARAMID_MCP_FAULT_HIGH:
+            this->FAULT_HIGH_THR = this->paramGet_MCP_FAULT_HIGH(m_paramIsValid);
+            break;
+        default:
+            break;
+    }
+}
+
+// ----------------------------------------------------------------------
+// Helper functions
+// ----------------------------------------------------------------------
+
+bool McpManager ::readTemp(U8 deviceAddr, F32& temperature) {
+    U8 regAddr = TEMP_REG_ADDR;
+    U8 rawData[2];  // MCP9808 ambient temperature register is 2 bytes
+    Fw::Buffer writeBuffer(&regAddr, 1);
+    Fw::Buffer readBuffer(rawData, 2);
+
+    const Drv::I2cStatus status = this->mcpWriteRead_out(0, deviceAddr, writeBuffer, readBuffer);
+    if (status != Drv::I2cStatus::I2C_OK) {
+        temperature = 0.0f;
+        return false;
+    }
+
+    temperature = convertRawTemp(rawData);
+    return true;
+}
+
+Billee::ThermalStates McpManager ::determineTempState(F32 tempCelsius) {
+    if (this->IDLE_LOW_THR <= tempCelsius && tempCelsius <= this->IDLE_HIGH_THR) {
+        return Billee::ThermalStates::IDLE;
+    }
+    if ((this->WARN_LOW_THR <= tempCelsius && tempCelsius < this->IDLE_LOW_THR) ||
+        (this->IDLE_HIGH_THR < tempCelsius && tempCelsius <= this->WARN_HIGH_THR)) {
+        return Billee::ThermalStates::WARN;
+    }
+    return Billee::ThermalStates::FAULT;
+}
+
+}  // namespace Billee
