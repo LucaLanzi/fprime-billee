@@ -104,6 +104,55 @@ void SubsystemManager::run_handler(
         this->m_eStopState
     );
 }
+void SubsystemManager::emergencyPowerOff_handler(
+    FwIndexType portNum,
+    const Billee::Subsystems& subsystem,
+    const Fw::On& state
+) {
+    (void)portNum;
+
+    switch (subsystem) {
+        case Billee::Subsystems::DRIVETRAIN: {
+            if (this->setDrivetrainGpios(this->toLogic(state)) && state != this->m_drivetrainState) {
+                this->m_drivetrainState = state;
+                this->log_ACTIVITY_HI_SubsystemPowerModeEvent(Billee::Subsystems::DRIVETRAIN, state);
+                this->tlmWrite_DrivetrainPowerState(this->m_drivetrainState);
+            }
+            break;
+        }
+        case Billee::Subsystems::ARM: {
+            const Drv::GpioStatus writeStatus = this->ArmSet_out(0, this->toLogic(state));
+            if (this->gpioOpSucceeded(writeStatus) && state != this->m_armState) {
+                this->m_armState = state;
+                this->log_ACTIVITY_HI_SubsystemPowerModeEvent(Billee::Subsystems::ARM, state);
+                this->tlmWrite_ArmPowerState(this->m_armState);
+            }
+            break;
+        }
+        case Billee::Subsystems::SCIENCE: {
+            const Drv::GpioStatus writeStatus = this->ScienceSet_out(0, this->toLogic(state));
+            if (this->gpioOpSucceeded(writeStatus) && state != this->m_scienceState) {
+                this->m_scienceState = state;
+                this->log_ACTIVITY_HI_SubsystemPowerModeEvent(Billee::Subsystems::SCIENCE, state);
+                this->tlmWrite_SciencePowerState(this->m_scienceState);
+            }
+            break;
+        }
+        case Billee::Subsystems::AUX: {
+            const Drv::GpioStatus writeStatus = this->AuxSet_out(0, this->toLogic(state));
+            if (this->gpioOpSucceeded(writeStatus) && state != this->m_auxState) {
+                this->m_auxState = state;
+                this->log_ACTIVITY_HI_SubsystemPowerModeEvent(Billee::Subsystems::AUX, state);
+                this->tlmWrite_AuxPowerState(this->m_auxState);
+            }
+            break;
+        }
+        default:
+            // LOGIC has no power control (it is the flight computer itself); ignore.
+            break;
+    }
+}
+
 // ----------------------------------------------------------------------
 // Handler implementations for commands
 // ----------------------------------------------------------------------

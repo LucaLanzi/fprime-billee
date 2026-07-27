@@ -8,4 +8,11 @@ module Billee {
         timestamp: U32 @< Timestamp of reading
     }
 
+    @ Broadcasts a single sensor's power reading, tagged with the subsystem it belongs to.
+    @ Used by InaManager to forward readings to FPManager.
+    port PowerReadingPort(
+        subsystem: Billee.Subsystems @< Subsystem this reading belongs to
+        reading: Billee.PowerReading @< The reading itself
+    )
+
 }

@@ -8,6 +8,10 @@ module Billee {
         @ Async scheduler input port to poll power data from the sensors
         async input port run: Svc.Sched
 
+        @ Forwards each successfully-read sensor's power reading to FPManager, tagged
+        @ with the subsystem it belongs to
+        output port powerReadingOut: Billee.PowerReadingPort
+
         @ Telemetry for the drivetrain motor 1 INA780B (I2C0, 0x40)
         telemetry DRIVE1_POWER: PowerReading id 0
 
@@ -35,11 +39,18 @@ module Billee {
         @ Telemetry for the logic board INA780B (I2C0, 0x4F)
         telemetry LOGIC_POWER: PowerReading id 8
 
-        @ Reports that at least one INA780B read failed during a poll cycle
+        @ Reports that at least one INA780B read failed. Only fires once on the transition
+        @ into a failed state, not on every poll cycle the sensors remain disconnected.
         event InaReadFailure() \
             severity warning high \
             id 0 \
             format "INA780B power read failed"
+
+        @ Reports that all INA780B sensors are reading successfully again after a prior failure
+        event InaReadRecovered() \
+            severity activity high \
+            id 1 \
+            format "INA780B power read recovered"
 
         ###############################################################################
         # Standard AC Ports: Required for Channels, Events, Commands, and Parameters  #

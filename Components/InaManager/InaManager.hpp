@@ -28,6 +28,10 @@ class InaManager final : public InaManagerComponentBase {
 
     U8 deviceAddrs[NUM_SENSORS];  //!< Array of device addresses for iterating through sensors
 
+    //! Subsystem each sensor index belongs to (index-aligned with deviceAddrs), used to tag
+    //! readings forwarded to FPManager via powerReadingOut
+    Billee::Subsystems subsystemForIndex[NUM_SENSORS];
+
     // INA780B register addresses (datasheet Table 7-5)
     static constexpr U8 REG_VBUS = 0x05;     //!< 16-bit, 3.125 mV/LSB
     static constexpr U8 REG_DIETEMP = 0x06;  //!< 16-bit (top 12 bits used), 125 m°C/LSB
@@ -64,6 +68,9 @@ class InaManager final : public InaManagerComponentBase {
 
     bool m_justBooted = true;
     U32 m_startTime = 0;
+
+    bool m_wasFailed = false;  //!< Latches so InaReadFailure/InaReadRecovered fire once per
+                               //!< transition, instead of every poll cycle the sensors remain disconnected
 
   private:
     // ----------------------------------------------------------------------

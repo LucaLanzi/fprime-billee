@@ -46,6 +46,14 @@ class SubsystemManager final : public SubsystemManagerComponentBase {
     void run_handler(FwIndexType portNum,  //!< The port number
                      U32 context           //!< The call order
                      ) override;
+
+    //! Handler implementation for emergencyPowerOff
+    //!
+    //! Commanded by FPManager to power off a subsystem that tripped a fault
+    void emergencyPowerOff_handler(FwIndexType portNum,              //!< The port number
+                                   const Billee::Subsystems& subsystem,  //!< Subsystem to control
+                                   const Fw::On& state                //!< Requested power state
+                                   ) override;
   private:
     // ----------------------------------------------------------------------
     // Handler implementations for commands

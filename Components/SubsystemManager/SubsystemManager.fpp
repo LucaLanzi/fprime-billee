@@ -10,6 +10,10 @@ module Billee {
         @ Input port invoked by the rate group
         async input port run: Svc.Sched
 
+        @ Commanded by FPManager to power off a subsystem that tripped a fault. Bypasses
+        @ the normal ground-command path so fault protection isn't gated on cmdDisp/GDS.
+        async input port emergencyPowerOff: Billee.SetPowerState
+
         @ GPIO ports controlling the six drivetrain motors
         output port Drive1Set: Drv.GpioWrite
         output port Drive2Set: Drv.GpioWrite

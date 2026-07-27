@@ -11,6 +11,11 @@ module Billee {
         @ Async scheduler input port to poll temp data from the sensors
         async input port run: Svc.Sched
 
+        @ Forwards each sensor's thermal reading to FPManager, tagged with the subsystem it
+        @ belongs to. The shared arm/science sensor is broadcast twice: once as ARM, once as
+        @ SCIENCE.
+        output port thermalReadingOut: Billee.ThermalReadingPort
+
         @ Telemetry for the logic board MCP9808 (I2C1, 0x18)
         telemetry LOGIC_TEMP: ThermalReading id 0
 
@@ -80,11 +85,18 @@ module Billee {
         @ Telemetry for FAULT state high threshold
         telemetry MCP_FAULT_HIGH: F32 id 0x15
 
-        @ Reports that at least one MCP9808 read failed during a poll cycle
+        @ Reports that at least one MCP9808 read failed. Only fires once on the transition
+        @ into a failed state, not on every poll cycle the sensors remain disconnected.
         event McpReadFailure() \
             severity warning high \
             id 0 \
             format "MCP9808 temperature read failed"
+
+        @ Reports that all MCP9808 sensors are reading successfully again after a prior failure
+        event McpReadRecovered() \
+            severity activity high \
+            id 1 \
+            format "MCP9808 temperature read recovered"
 
         ###############################################################################
         # Standard AC Ports: Required for Channels, Events, Commands, and Parameters  #

@@ -15,4 +15,12 @@ module Billee{
         timestamp: U32 @< Timestamp of reading
     }
 
+    @ Broadcasts a single sensor's thermal reading, tagged with the subsystem it belongs to.
+    @ Used by McpManager to forward readings to FPManager. The shared arm/science sensor
+    @ is broadcast twice: once tagged ARM, once tagged SCIENCE.
+    port ThermalReadingPort(
+        subsystem: Billee.Subsystems @< Subsystem this reading belongs to
+        reading: Billee.ThermalReading @< The reading itself
+    )
+
 }

@@ -52,6 +52,8 @@ class McpManager final : public McpManagerComponentBase {
     bool m_justBooted;
     bool m_successfulRead;  // Flag to track whether the most recent read was successful, used to determine
                              // state machine transitions
+    bool m_wasFailed = false;  // Latches so McpReadFailure/McpReadRecovered fire once per transition,
+                               // instead of every poll cycle the sensors remain disconnected
     U32 m_startTime = 0;
     Fw::ParamValid m_paramIsValid = Fw::ParamValid::VALID;
 

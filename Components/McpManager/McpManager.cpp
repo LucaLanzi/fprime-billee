@@ -91,6 +91,10 @@ void McpManager ::Billee_ThermalStateMachine_action_doRead(SmId smId, Billee_The
     }
 
     if (this->m_successfulRead) {
+        if (this->m_wasFailed) {
+            this->m_wasFailed = false;
+            this->log_ACTIVITY_HI_McpReadRecovered();
+        }
         this->mcp_thermalStateMachine_sendSignal_success();
     } else {
         this->mcp_thermalStateMachine_sendSignal_fail();
@@ -105,12 +109,16 @@ void McpManager ::Billee_ThermalStateMachine_action_doEvaluate(SmId smId,
         switch (i) {
             case 0:
                 this->tlmWrite_LOGIC_TEMP(this->m_thermalReadings[0]);
+                this->thermalReadingOut_out(0, Billee::Subsystems::LOGIC, this->m_thermalReadings[0]);
                 break;
             case 1:
                 this->tlmWrite_DRIVE_TEMP(this->m_thermalReadings[1]);
+                this->thermalReadingOut_out(0, Billee::Subsystems::DRIVETRAIN, this->m_thermalReadings[1]);
                 break;
             case 2:
                 this->tlmWrite_ARM_SCI_TEMP(this->m_thermalReadings[2]);
+                this->thermalReadingOut_out(0, Billee::Subsystems::ARM, this->m_thermalReadings[2]);
+                this->thermalReadingOut_out(0, Billee::Subsystems::SCIENCE, this->m_thermalReadings[2]);
                 break;
             default:
                 break;
@@ -121,7 +129,10 @@ void McpManager ::Billee_ThermalStateMachine_action_doEvaluate(SmId smId,
 
 void McpManager ::Billee_ThermalStateMachine_action_doReadFail(SmId smId,
                                                                 Billee_ThermalStateMachine::Signal signal) {
-    this->log_WARNING_HI_McpReadFailure();
+    if (!this->m_wasFailed) {
+        this->m_wasFailed = true;
+        this->log_WARNING_HI_McpReadFailure();
+    }
     this->m_successfulRead = true;  // Reset so the next tick tries reading again
     this->mcp_thermalStateMachine_sendSignal_success();
 }

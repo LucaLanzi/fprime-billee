@@ -28,6 +28,16 @@ InaManager ::InaManager(const char* const compName) : InaManagerComponentBase(co
     deviceAddrs[6] = ARM_ADDR;
     deviceAddrs[7] = SCIENCE_ADDR;
     deviceAddrs[8] = LOGIC_ADDR;
+
+    subsystemForIndex[0] = Billee::Subsystems::DRIVETRAIN;
+    subsystemForIndex[1] = Billee::Subsystems::DRIVETRAIN;
+    subsystemForIndex[2] = Billee::Subsystems::DRIVETRAIN;
+    subsystemForIndex[3] = Billee::Subsystems::DRIVETRAIN;
+    subsystemForIndex[4] = Billee::Subsystems::DRIVETRAIN;
+    subsystemForIndex[5] = Billee::Subsystems::DRIVETRAIN;
+    subsystemForIndex[6] = Billee::Subsystems::ARM;
+    subsystemForIndex[7] = Billee::Subsystems::SCIENCE;
+    subsystemForIndex[8] = Billee::Subsystems::LOGIC;
 }
 
 InaManager ::~InaManager() {}
@@ -51,13 +61,20 @@ void InaManager ::run_handler(FwIndexType portNum, U32 context) {
 
         if (this->readSensor(this->deviceAddrs[i], reading)) {
             this->writeTelemetry(i, reading);
+            this->powerReadingOut_out(0, this->subsystemForIndex[i], reading);
         } else {
             anyFailed = true;
         }
     }
 
     if (anyFailed) {
-        this->log_WARNING_HI_InaReadFailure();
+        if (!this->m_wasFailed) {
+            this->m_wasFailed = true;
+            this->log_WARNING_HI_InaReadFailure();
+        }
+    } else if (this->m_wasFailed) {
+        this->m_wasFailed = false;
+        this->log_ACTIVITY_HI_InaReadRecovered();
     }
 }
 
