@@ -23,6 +23,18 @@ module Billee{
         timestamp: U32 @< Timestamp of reading
     }
 
+    @ The full configured range of temperature thresholds used to classify a reading into
+    @ IDLE/WARN/FAULT, bundled into a single telemetry point so the whole configured range
+    @ is visible at a glance
+    struct ThermalBounds {
+        idleLow: F32 @< IDLE state low threshold
+        idleHigh: F32 @< IDLE state high threshold
+        warnLow: F32 @< WARNING state low threshold
+        warnHigh: F32 @< WARNING state high threshold
+        faultLow: F32 @< FAULT state low threshold
+        faultHigh: F32 @< FAULT state high threshold
+    }
+
     @ Broadcasts a single sensor's thermal reading, tagged with the subsystem it belongs to.
     @ Used by McpManager to forward readings to FPManager. The shared arm/science sensor
     @ is broadcast twice: once tagged ARM, once tagged SCIENCE.

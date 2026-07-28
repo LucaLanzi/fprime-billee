@@ -67,23 +67,9 @@ module Billee {
             set opcode 0x11 \
             save opcode 0x12
 
-        @ Telemetry for IDLE state low threshold
-        telemetry MCP_IDLE_LOW: F32 id 0x10
-
-        @ Telemetry for IDLE state high threshold
-        telemetry MCP_IDLE_HIGH: F32 id 0x11
-
-        @ Telemetry for WARNING state low threshold
-        telemetry MCP_WARN_LOW: F32 id 0x12
-
-        @ Telemetry for WARNING state high threshold
-        telemetry MCP_WARN_HIGH: F32 id 0x13
-
-        @ Telemetry for FAULT state low threshold
-        telemetry MCP_FAULT_LOW: F32 id 0x14
-
-        @ Telemetry for FAULT state high threshold
-        telemetry MCP_FAULT_HIGH: F32 id 0x15
+        @ The full configured range of IDLE/WARN/FAULT temperature thresholds, bundled into a
+        @ single telemetry point so all the values configured for the bounds are visible at once
+        telemetry MCP_TEMP_BOUNDS: ThermalBounds id 0x10
 
         @ Reports that at least one MCP9808 read failed. Only fires once on the transition
         @ into a failed state, not on every poll cycle the sensors remain disconnected.

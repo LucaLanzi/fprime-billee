@@ -82,6 +82,7 @@ void McpManager ::Billee_ThermalStateMachine_action_doRead(SmId smId, Billee_The
         this->WARN_HIGH_THR = this->paramGet_MCP_WARN_HIGH(m_paramIsValid);
         this->FAULT_LOW_THR = this->paramGet_MCP_FAULT_LOW(m_paramIsValid);
         this->FAULT_HIGH_THR = this->paramGet_MCP_FAULT_HIGH(m_paramIsValid);
+        this->publishBoundsTelemetry();
 
         // Skip straight to a read on the very next tick rather than waiting a full cycle idle.
         this->mcp_thermalStateMachine_sendSignal_success();
@@ -175,6 +176,7 @@ void McpManager ::parameterUpdated(FwPrmIdType id) {
         default:
             break;
     }
+    this->publishBoundsTelemetry();
 }
 
 // ----------------------------------------------------------------------
@@ -207,6 +209,21 @@ void McpManager ::publishReadings() {
     this->tlmWrite_ARM_SCI_TEMP(this->m_thermalReadings[2]);
     this->thermalReadingOut_out(0, Billee::Subsystems::ARM, this->m_thermalReadings[2]);
     this->thermalReadingOut_out(0, Billee::Subsystems::SCIENCE, this->m_thermalReadings[2]);
+
+    // Republished every cycle (not just once at boot) so a GDS client connecting after boot
+    // still sees the current bounds without waiting for a param change.
+    this->publishBoundsTelemetry();
+}
+
+void McpManager ::publishBoundsTelemetry() {
+    Billee::ThermalBounds bounds;
+    bounds.set_idleLow(this->IDLE_LOW_THR);
+    bounds.set_idleHigh(this->IDLE_HIGH_THR);
+    bounds.set_warnLow(this->WARN_LOW_THR);
+    bounds.set_warnHigh(this->WARN_HIGH_THR);
+    bounds.set_faultLow(this->FAULT_LOW_THR);
+    bounds.set_faultHigh(this->FAULT_HIGH_THR);
+    this->tlmWrite_MCP_TEMP_BOUNDS(bounds);
 }
 
 Billee::ThermalStates McpManager ::determineTempState(F32 tempCelsius) {

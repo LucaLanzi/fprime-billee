@@ -21,6 +21,14 @@ module Billee {
         timestamp: U32 @< Timestamp of reading
     }
 
+    @ The full configured range of voltage/current fault thresholds, bundled into a single
+    @ telemetry point so the whole configured range is visible at a glance
+    struct PowerBounds {
+        vbusFaultLow: F32 @< Undervoltage fault threshold in volts
+        vbusFaultHigh: F32 @< Overvoltage fault threshold in volts
+        currentFaultHigh: F32 @< Overcurrent fault threshold in amps (applied uniformly, +/-)
+    }
+
     @ Broadcasts a single sensor's power reading, tagged with the subsystem it belongs to.
     @ Used by InaManager to forward readings to FPManager.
     port PowerReadingPort(

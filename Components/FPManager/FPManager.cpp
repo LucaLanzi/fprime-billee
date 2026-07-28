@@ -23,6 +23,10 @@ void FPManager ::powerReadingIn_handler(FwIndexType portNum,
                                         const Billee::Subsystems& subsystem,
                                         const Billee::PowerReading& reading) {
     this->loadParamsIfNeeded();
+    this->writePowerSensorStateTelemetry(reading);
+    // Republished every reading (not just once at first load) so a GDS client connecting after
+    // boot still sees the current bounds without waiting for a fault trip/clear or param change.
+    this->publishThresholdTelemetry();
     switch (subsystem) {
         case Billee::Subsystems::DRIVETRAIN:
             this->fp_drivetrainSM_sendSignal_powerUpdate(reading);
@@ -92,11 +96,7 @@ void FPManager ::parameterUpdated(FwPrmIdType id) {
 bool FPManager ::Billee_FPStateMachine_guard_isPowerFault(SmId smId,
                                                           Billee_FPStateMachine::Signal signal,
                                                           const Billee::PowerReading& data) const {
-    const F32 voltage = data.get_voltage();
-    const F32 current = data.get_current();
-    const bool fromData = (voltage < this->m_vbusFaultLow) || (voltage > this->m_vbusFaultHigh) ||
-                          (current > this->m_currentFaultHigh) || (current < -this->m_currentFaultHigh);
-    return fromData || this->cacheFor(smId).thermalFaulted;
+    return this->isPowerReadingOutOfBounds(data) || this->cacheFor(smId).thermalFaulted;
 }
 
 bool FPManager ::Billee_FPStateMachine_guard_isThermalFault(SmId smId,
@@ -242,9 +242,57 @@ void FPManager ::loadParamsIfNeeded() {
 }
 
 void FPManager ::publishThresholdTelemetry() {
-    this->tlmWrite_VBUS_FAULT_LOW(this->m_vbusFaultLow);
-    this->tlmWrite_VBUS_FAULT_HIGH(this->m_vbusFaultHigh);
-    this->tlmWrite_CURRENT_FAULT_HIGH(this->m_currentFaultHigh);
+    Billee::PowerBounds bounds;
+    bounds.set_vbusFaultLow(this->m_vbusFaultLow);
+    bounds.set_vbusFaultHigh(this->m_vbusFaultHigh);
+    bounds.set_currentFaultHigh(this->m_currentFaultHigh);
+    // All four subsystems currently share the same global threshold params (see FPManager.fpp).
+    this->tlmWrite_DRIVETRAIN_POWER_BOUNDS(bounds);
+    this->tlmWrite_ARM_POWER_BOUNDS(bounds);
+    this->tlmWrite_SCIENCE_POWER_BOUNDS(bounds);
+    this->tlmWrite_LOGIC_POWER_BOUNDS(bounds);
+}
+
+bool FPManager ::isPowerReadingOutOfBounds(const Billee::PowerReading& reading) const {
+    const F32 voltage = reading.get_voltage();
+    const F32 current = reading.get_current();
+    return (voltage < this->m_vbusFaultLow) || (voltage > this->m_vbusFaultHigh) ||
+           (current > this->m_currentFaultHigh) || (current < -this->m_currentFaultHigh);
+}
+
+void FPManager ::writePowerSensorStateTelemetry(const Billee::PowerReading& reading) {
+    const Billee::FaultState state =
+        this->isPowerReadingOutOfBounds(reading) ? Billee::FaultState::TRIPPED : Billee::FaultState::NOMINAL;
+
+    switch (reading.get_sourceId()) {
+        case Billee::InaSensorId::DRIVE1:
+            this->tlmWrite_DRIVE1_POWER_STATE(state);
+            break;
+        case Billee::InaSensorId::DRIVE2:
+            this->tlmWrite_DRIVE2_POWER_STATE(state);
+            break;
+        case Billee::InaSensorId::DRIVE3:
+            this->tlmWrite_DRIVE3_POWER_STATE(state);
+            break;
+        case Billee::InaSensorId::DRIVE4:
+            this->tlmWrite_DRIVE4_POWER_STATE(state);
+            break;
+        case Billee::InaSensorId::DRIVE5:
+            this->tlmWrite_DRIVE5_POWER_STATE(state);
+            break;
+        case Billee::InaSensorId::DRIVE6:
+            this->tlmWrite_DRIVE6_POWER_STATE(state);
+            break;
+        case Billee::InaSensorId::ARM:
+            this->tlmWrite_ARM_POWER_STATE(state);
+            break;
+        case Billee::InaSensorId::SCIENCE:
+            this->tlmWrite_SCIENCE_POWER_STATE(state);
+            break;
+        case Billee::InaSensorId::LOGIC:
+            this->tlmWrite_LOGIC_POWER_STATE(state);
+            break;
+    }
 }
 
 }  // namespace Billee

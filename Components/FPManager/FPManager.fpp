@@ -70,14 +70,24 @@ module Billee {
             set opcode 0x05 \
             save opcode 0x06
 
-        @ Telemetry mirror of the undervoltage threshold
-        telemetry VBUS_FAULT_LOW: F32 id 0x10
+        # The full configured range of voltage/current fault thresholds, bundled into a single
+        # telemetry point per subsystem so the bounds applied to each subsystem's fault
+        # protection are visible at a glance. All four currently share the same underlying
+        # VBUS_FAULT_LOW/HIGH and CURRENT_FAULT_HIGH params (there is one global threshold set,
+        # not one per subsystem), but are exposed per subsystem for clarity on the ground.
 
-        @ Telemetry mirror of the overvoltage threshold
-        telemetry VBUS_FAULT_HIGH: F32 id 0x11
+        @ Voltage/current fault-protection bounds applied to the drivetrain subsystem (all 6
+        @ drive motors share this one set of thresholds)
+        telemetry DRIVETRAIN_POWER_BOUNDS: Billee.PowerBounds id 0x10
 
-        @ Telemetry mirror of the overcurrent threshold
-        telemetry CURRENT_FAULT_HIGH: F32 id 0x12
+        @ Voltage/current fault-protection bounds applied to the arm subsystem
+        telemetry ARM_POWER_BOUNDS: Billee.PowerBounds id 0x11
+
+        @ Voltage/current fault-protection bounds applied to the science subsystem
+        telemetry SCIENCE_POWER_BOUNDS: Billee.PowerBounds id 0x12
+
+        @ Voltage/current fault-protection bounds applied to the logic board
+        telemetry LOGIC_POWER_BOUNDS: Billee.PowerBounds id 0x13
 
         # ----------------------------------------------------------------------
         # Telemetry: latched fault state per monitored subsystem
@@ -94,6 +104,40 @@ module Billee {
 
         @ Fault-protection state of the logic board (monitoring only, no power control)
         telemetry LOGIC_FAULT_STATE: Billee.FaultState id 3
+
+        # ----------------------------------------------------------------------
+        # Telemetry: per-physical-sensor voltage/current fault state, evaluated against
+        # VBUS_FAULT_LOW/HIGH and CURRENT_FAULT_HIGH on every individual reading (finer-grained
+        # than the per-subsystem *_FAULT_STATE channels above, which combine power+thermal and
+        # merge all 6 drivetrain sensors into one state)
+        # ----------------------------------------------------------------------
+
+        @ Voltage/current fault state of the drivetrain motor 1 INA780B
+        telemetry DRIVE1_POWER_STATE: Billee.FaultState id 4
+
+        @ Voltage/current fault state of the drivetrain motor 2 INA780B
+        telemetry DRIVE2_POWER_STATE: Billee.FaultState id 5
+
+        @ Voltage/current fault state of the drivetrain motor 3 INA780B
+        telemetry DRIVE3_POWER_STATE: Billee.FaultState id 6
+
+        @ Voltage/current fault state of the drivetrain motor 4 INA780B
+        telemetry DRIVE4_POWER_STATE: Billee.FaultState id 7
+
+        @ Voltage/current fault state of the drivetrain motor 5 INA780B
+        telemetry DRIVE5_POWER_STATE: Billee.FaultState id 8
+
+        @ Voltage/current fault state of the drivetrain motor 6 INA780B
+        telemetry DRIVE6_POWER_STATE: Billee.FaultState id 9
+
+        @ Voltage/current fault state of the arm subsystem INA780B
+        telemetry ARM_POWER_STATE: Billee.FaultState id 10
+
+        @ Voltage/current fault state of the science subsystem INA780B
+        telemetry SCIENCE_POWER_STATE: Billee.FaultState id 11
+
+        @ Voltage/current fault state of the logic board INA780B
+        telemetry LOGIC_POWER_STATE: Billee.FaultState id 12
 
         # ----------------------------------------------------------------------
         # Events

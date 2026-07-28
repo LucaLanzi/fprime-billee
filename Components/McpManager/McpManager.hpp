@@ -115,6 +115,10 @@ class McpManager final : public McpManagerComponentBase {
     //! the channels are always populated, using tempState FAILURE for any sensor that failed
     //! this cycle.
     void publishReadings();
+
+    //! Write the bundled MCP_TEMP_BOUNDS telemetry point from the cached threshold values.
+    //! Called on boot once params are loaded, and again whenever a threshold param is updated.
+    void publishBoundsTelemetry();
 };
 
 }  // namespace Billee

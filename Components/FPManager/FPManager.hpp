@@ -103,6 +103,16 @@ class FPManager final : public FPManagerComponentBase {
     static bool isControllable(SmId smId);
     void writeFaultStateTelemetry(SmId smId, Billee::FaultState state);
 
+    //! Evaluates a single reading against the cached voltage/current thresholds (independent
+    //! of, and finer-grained than, the latched per-subsystem state machines) and writes the
+    //! result to that physical sensor's own *_POWER_STATE telemetry channel
+    void writePowerSensorStateTelemetry(const Billee::PowerReading& reading);
+
+    //! True if the reading's voltage/current violates the cached thresholds. Shared by the
+    //! isPowerFault guard and writePowerSensorStateTelemetry so the fault formula lives in
+    //! exactly one place.
+    bool isPowerReadingOutOfBounds(const Billee::PowerReading& reading) const;
+
     // ----------------------------------------------------------------------
     // 6S LiPo bus-voltage + overcurrent protection thresholds (cached copies of the params)
     // ----------------------------------------------------------------------
