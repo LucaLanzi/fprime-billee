@@ -52,6 +52,23 @@ module Billee {
             id 1 \
             format "INA780B power read recovered"
 
+        @ One INA780B has failed LOST_THRESHOLD consecutive reads. Alert only: its readings are
+        @ flagged invalid and are not used by fault protection until it recovers.
+        event InaSensorLost(
+            sensorId: Billee.InaSensorId
+        ) \
+            severity warning high \
+            id 2 \
+            format "INA780B {} lost (consecutive read failures); channel has no current monitoring"
+
+        @ A previously lost INA780B is reading successfully again
+        event InaSensorRecovered(
+            sensorId: Billee.InaSensorId
+        ) \
+            severity activity high \
+            id 3 \
+            format "INA780B {} recovered"
+
         ###############################################################################
         # Standard AC Ports: Required for Channels, Events, Commands, and Parameters  #
         ###############################################################################

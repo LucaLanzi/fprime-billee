@@ -75,6 +75,9 @@ class InaManager final : public InaManagerComponentBase {
     bool m_justBooted = true;
     U32 m_startTime = 0;
 
+    static constexpr U8 LOST_THRESHOLD = 10;  //!< Consecutive failed reads before InaSensorLost fires
+    U8 m_failCount[NUM_SENSORS] = {};          //!< Consecutive failed reads per sensor (saturates)
+    bool m_sensorLost[NUM_SENSORS] = {};       //!< Per-sensor lost latch (for InaSensorLost/Recovered)
     bool m_wasFailed = false;  //!< Latches so InaReadFailure/InaReadRecovered fire once per
                                //!< transition, instead of every poll cycle the sensors remain disconnected
 

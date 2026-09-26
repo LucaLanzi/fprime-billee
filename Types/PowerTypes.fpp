@@ -19,14 +19,15 @@ module Billee {
         power: F32 @< Power reading in watts
         sourceId: InaSensorId @< Which physical sensor this reading came from
         timestamp: U32 @< Timestamp of reading
+        valid: bool @< true = this cycle's I2C read succeeded; false = values are stale/last-known and must not be used for fault protection
     }
 
-    @ The full configured range of voltage/current fault thresholds, bundled into a single
-    @ telemetry point so the whole configured range is visible at a glance
+    @ Voltage/current fault thresholds for one subsystem. Used both as the FPManager
+    @ per-subsystem parameter type and as the matching telemetry point.
     struct PowerBounds {
-        vbusFaultLow: F32 @< Undervoltage fault threshold in volts
+        vbusFaultLow: F32 @< Undervoltage fault threshold in volts (only checked while commanded ON and settled)
         vbusFaultHigh: F32 @< Overvoltage fault threshold in volts
-        currentFaultHigh: F32 @< Overcurrent fault threshold in amps (applied uniformly, +/-)
+        currentFaultHigh: F32 @< Overcurrent fault threshold in amps, per sensor (applied as +/-)
     }
 
     @ Broadcasts a single sensor's power reading, tagged with the subsystem it belongs to.

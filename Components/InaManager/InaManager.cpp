@@ -69,11 +69,27 @@ void InaManager ::run_handler(FwIndexType portNum, U32 context) {
         reading.set_sourceId(this->sensorIdForIndex[i]);
         reading.set_timestamp(timestamp);
 
-        if (!this->readSensor(this->deviceAddrs[i], reading)) {
+        const bool ok = this->readSensor(this->deviceAddrs[i], reading);
+        // Always publish, even on failure, but flag it: `reading` keeps its last-known (or zeroed,
+        // if this is the first-ever read) values for telemetry, and valid=false tells FPManager
+        // not to evaluate it. A failed read must never look like a real 0 V / 0 A measurement.
+        reading.set_valid(ok);
+        if (ok) {
+            this->m_failCount[i] = 0;
+            if (this->m_sensorLost[i]) {
+                this->m_sensorLost[i] = false;
+                this->log_ACTIVITY_HI_InaSensorRecovered(this->sensorIdForIndex[i]);
+            }
+        } else {
             anyFailed = true;
+            if (this->m_failCount[i] < LOST_THRESHOLD) {
+                this->m_failCount[i]++;
+            }
+            if (this->m_failCount[i] >= LOST_THRESHOLD && !this->m_sensorLost[i]) {
+                this->m_sensorLost[i] = true;
+                this->log_WARNING_HI_InaSensorLost(this->sensorIdForIndex[i]);
+            }
         }
-        // Always publish, even on failure: `reading` retains its last-known (or zeroed, if this
-        // is the first-ever read) values, so the channel/FPManager never silently goes stale.
         this->writeTelemetry(i, reading);
         this->powerReadingOut_out(0, this->subsystemForIndex[i], reading);
     }
