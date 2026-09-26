@@ -19,116 +19,123 @@ class FPManager final : public FPManagerComponentBase {
     //! Construct FPManager object
     FPManager(const char* const compName  //!< The component name
     );
+
     //! Destroy FPManager object
     ~FPManager();
 
   private:
+    friend class FPManagerTester;  // unit-test access
+    //! Monitored subsystems, used as array indices (matches the four state machine instances)
+    enum SubIndex : U8 { SUB_DRIVETRAIN = 0, SUB_ARM = 1, SUB_SCIENCE = 2, SUB_LOGIC = 3, NUM_SUBS = 4 };
+    static constexpr U8 NUM_INA = 9;  //!< InaSensorId 1..9
+    static constexpr U8 NUM_MCP = 3;  //!< McpSensorId 1..3
+
     // ----------------------------------------------------------------------
     // Handler implementations for typed input ports
     // ----------------------------------------------------------------------
 
-    //! Handler implementation for powerReadingIn
-    void powerReadingIn_handler(FwIndexType portNum,       //!< The port number
+    void powerReadingIn_handler(FwIndexType portNum,
                                 const Billee::Subsystems& subsystem,
                                 const Billee::PowerReading& reading) override;
 
-    //! Handler implementation for thermalReadingIn
-    void thermalReadingIn_handler(FwIndexType portNum,     //!< The port number
+    void thermalReadingIn_handler(FwIndexType portNum,
                                   const Billee::Subsystems& subsystem,
                                   const Billee::ThermalReading& reading) override;
 
+    void powerStateIn_handler(FwIndexType portNum,
+                              const Billee::Subsystems& subsystem,
+                              const Fw::On& state) override;
+
+    //! Queue-overflow hooks (run on the sender's thread): count and report dropped readings
+    void powerReadingIn_overflowHook(FwIndexType portNum,
+                                     const Billee::Subsystems& subsystem,
+                                     const Billee::PowerReading& reading) override;
+
+    void thermalReadingIn_overflowHook(FwIndexType portNum,
+                                       const Billee::Subsystems& subsystem,
+                                       const Billee::ThermalReading& reading) override;
+
+    void powerStateIn_overflowHook(FwIndexType portNum,
+                                   const Billee::Subsystems& subsystem,
+                                   const Fw::On& state) override;
+
     // ----------------------------------------------------------------------
-    // Handler implementation for parameter updates
+    // Handler implementations for commands
     // ----------------------------------------------------------------------
+
+    void CLEAR_FAULT_cmdHandler(FwOpcodeType opCode, U32 cmdSeq, Billee::Subsystems subsystem) override;
+
+    //! Parameter update notification
     void parameterUpdated(FwPrmIdType id) override;
 
-  private:
     // ----------------------------------------------------------------------
-    // Implementations for internal state machine guards
-    // ----------------------------------------------------------------------
-
-    //! True if the incoming power reading, combined with this subsystem's last-known thermal
-    //! status, means the subsystem should be (or remain) faulted
-    bool Billee_FPStateMachine_guard_isPowerFault(SmId smId,
-                                                  Billee_FPStateMachine::Signal signal,
-                                                  const Billee::PowerReading& data) const override;
-
-    //! True if the incoming thermal reading, combined with this subsystem's last-known power
-    //! status, means the subsystem should be (or remain) faulted
-    bool Billee_FPStateMachine_guard_isThermalFault(SmId smId,
-                                                    Billee_FPStateMachine::Signal signal,
-                                                    const Billee::ThermalReading& data) const override;
-
-    // ----------------------------------------------------------------------
-    // Implementations for internal state machine actions
+    // State machine actions
     // ----------------------------------------------------------------------
 
-    //! Trip a fault caused by a voltage/current violation: command the subsystem off (if
-    //! controllable) and log why
-    void Billee_FPStateMachine_action_doTripFromPower(SmId smId,
-                                                      Billee_FPStateMachine::Signal signal,
-                                                      const Billee::PowerReading& data) override;
+    void Billee_FPStateMachine_action_doTrip(SmId smId,
+                                             Billee_FPStateMachine::Signal signal,
+                                             const Billee::FaultReason& value) override;
 
-    //! Trip a fault caused by a thermal violation: command the subsystem off (if controllable)
-    //! and log why
-    void Billee_FPStateMachine_action_doTripFromThermal(SmId smId,
-                                                        Billee_FPStateMachine::Signal signal,
-                                                        const Billee::ThermalReading& data) override;
-
-    //! Clear a previously-tripped fault and log the recovery
     void Billee_FPStateMachine_action_doClear(SmId smId, Billee_FPStateMachine::Signal signal) override;
 
-  private:
     // ----------------------------------------------------------------------
-    // Per-subsystem fault-domain cache
+    // Helpers
     // ----------------------------------------------------------------------
 
-    //! Each state machine instance only receives ONE domain's data per signal; this cache
-    //! remembers the OTHER domain's last-known status so a guard can still correctly combine
-    //! both when deciding the overall fault condition.
-    struct FaultCache {
-        bool powerFaulted = false;
-        bool thermalFaulted = false;
+    static bool subIndexFor(Billee::Subsystems subsystem, U8& index);
+    static U8 subIndexFor(SmId smId);
+    static Billee::Subsystems subsystemFor(U8 subIndex);
+    static bool isControllable(U8 subIndex);
+
+    void applyPowerState(U8 subIndex, bool on);
+    void applyPendingPowerStates();
+    bool isFaulted(U8 subIndex);
+    void sendFault(U8 subIndex, Billee::FaultReason reason);
+    void sendClear(U8 subIndex);
+
+    F64 nowSeconds();
+    void loadParamsIfNeeded();
+    void loadParams();
+    void publishThresholdTelemetry();
+    void writeFaultStateTelemetry(U8 subIndex, Billee::FaultState state);
+    void writeSensorStateTelemetry(Billee::InaSensorId sensorId, Billee::FaultState state);
+    void resetSubsystemCounters(U8 subIndex);
+
+    //! Per-INA780 debounce counters (saturating)
+    struct SensorEval {
+        U8 oc = 0;
+        U8 ov = 0;
+        U8 uv = 0;
+        U8 subIndex = SUB_LOGIC;
     };
 
-    FaultCache m_drivetrainCache;
-    FaultCache m_armCache;
-    FaultCache m_scienceCache;
-    FaultCache m_logicCache;  //!< Monitoring only: LOGIC has no power control (it runs FPManager)
-
-    FaultCache& cacheFor(SmId smId);
-    const FaultCache& cacheFor(SmId smId) const;
-
-    static Billee::Subsystems subsystemFor(SmId smId);
-    static bool isControllable(SmId smId);
-    void writeFaultStateTelemetry(SmId smId, Billee::FaultState state);
-
-    //! Evaluates a single reading against the cached voltage/current thresholds (independent
-    //! of, and finer-grained than, the latched per-subsystem state machines) and writes the
-    //! result to that physical sensor's own *_POWER_STATE telemetry channel
-    void writePowerSensorStateTelemetry(const Billee::PowerReading& reading);
-
-    //! True if the reading's voltage/current violates the cached thresholds. Shared by the
-    //! isPowerFault guard and writePowerSensorStateTelemetry so the fault formula lives in
-    //! exactly one place.
-    bool isPowerReadingOutOfBounds(const Billee::PowerReading& reading) const;
-
     // ----------------------------------------------------------------------
-    // 6S LiPo bus-voltage + overcurrent protection thresholds (cached copies of the params)
+    // State
     // ----------------------------------------------------------------------
 
+    SensorEval m_sensor[NUM_INA];
+    bool m_commandedOn[NUM_SUBS] = {false, false, false, true};  //!< LOGIC is always on
+    F64 m_onSince[NUM_SUBS] = {0.0, 0.0, 0.0, 0.0};
+    U8 m_thermalCount[NUM_SUBS] = {0, 0, 0, 0};
+    bool m_thermalFault[NUM_SUBS] = {false, false, false, false};  //!< Latest thermal state is FAULT
+    bool m_mcpLost[NUM_MCP] = {false, false, false};
+
+    // Parameters (cached)
     bool m_paramsLoaded = false;
-    F32 m_vbusFaultLow = 0.0f;
-    F32 m_vbusFaultHigh = 0.0f;
-    F32 m_currentFaultHigh = 0.0f;
-    Fw::ParamValid m_paramIsValid = Fw::ParamValid::VALID;
+    Billee::PowerBounds m_bounds[NUM_SUBS];
+    F32 m_uvSettleS = 1.0f;
+    U8 m_debounceOc = 3;
+    U8 m_debounceOv = 3;
+    U8 m_debounceUv = 5;
+    U8 m_debounceThermal = 2;
 
-    //! Lazily loads params on first use (guards are const and cannot call the non-const
-    //! paramGet, so the handlers load/cache them here, before signaling the state machine)
-    void loadParamsIfNeeded();
+    //! Power-state changes parked by powerStateIn_overflowHook (sender thread):
+    //! 0 = none, 1 = OFF, 2 = ON. Single-byte writes; applied on FPManager's thread.
+    volatile U8 m_pendingPowerState[NUM_SUBS] = {0, 0, 0, 0};
 
-    //! Publishes the current threshold values to telemetry
-    void publishThresholdTelemetry();
+    // Overflow accounting (written from sender threads)
+    volatile U32 m_droppedReadings = 0;
+    volatile bool m_dropReported = false;
 };
 
 }  // namespace Billee

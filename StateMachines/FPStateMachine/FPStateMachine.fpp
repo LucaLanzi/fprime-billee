@@ -1,53 +1,32 @@
 module Billee {
+    @ Per-subsystem fault latch.
+    @
+    @ Detection (thresholds, debounce, undervoltage gating) lives in FPManager's C++; this state
+    @ machine only latches. Once FAULTED it stays FAULTED (further faults are ignored, so there
+    @ is no re-trip spam and no auto-clear) until the ground sends fpManager.CLEAR_FAULT.
     state machine FPStateMachine {
 
         @ Enter NOMINAL on component startup: no fault latched yet
         initial enter NOMINAL
 
-        @ A new power (voltage/current) reading arrived for this subsystem
-        signal powerUpdate: Billee.PowerReading
+        @ A debounced fault was detected on this subsystem
+        signal fault: Billee.FaultReason
 
-        @ A new thermal reading arrived for this subsystem
-        signal thermalUpdate: Billee.ThermalReading
+        @ Ground requested a clear (FPManager has already checked it is allowed)
+        signal clearRequest
 
-        @ True if the reading (combined with the other domain's last-known status) violates
-        @ the configured voltage/current thresholds
-        guard isPowerFault: Billee.PowerReading
+        @ Latch the fault: inhibit the subsystem (if controllable) and log why
+        action doTrip: Billee.FaultReason
 
-        @ True if the reading (combined with the other domain's last-known status) is in a
-        @ FAULT or FAILURE thermal state
-        guard isThermalFault: Billee.ThermalReading
-
-        @ Trip the fault: command the subsystem off (if controllable) and log why
-        action doTripFromPower: Billee.PowerReading
-
-        @ Trip the fault: command the subsystem off (if controllable) and log why
-        action doTripFromThermal: Billee.ThermalReading
-
-        @ Clear a previously-tripped fault and log the recovery
+        @ Release the latch: reset detection state and release the inhibit
         action doClear
 
-        @ Decide whether a power reading, while already FAULTED, means we can clear
-        choice CHECK_POWER {
-            if isPowerFault enter FAULTED \
-                else do {doClear} enter NOMINAL
-        }
-
-        @ Decide whether a thermal reading, while already FAULTED, means we can clear
-        choice CHECK_THERMAL {
-            if isThermalFault enter FAULTED \
-                else do {doClear} enter NOMINAL
-        }
-
         state NOMINAL {
-            on powerUpdate if isPowerFault do {doTripFromPower} enter FAULTED
-            on thermalUpdate if isThermalFault do {doTripFromThermal} enter FAULTED
+            on fault do {doTrip} enter FAULTED
         }
 
         state FAULTED {
-            on powerUpdate enter CHECK_POWER
-            on thermalUpdate enter CHECK_THERMAL
+            on clearRequest do {doClear} enter NOMINAL
         }
-
     }
 }
