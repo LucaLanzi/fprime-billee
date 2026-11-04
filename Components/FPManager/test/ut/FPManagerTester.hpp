@@ -35,6 +35,9 @@ class FPManagerTester final : public FPManagerGTestBase {
     void testF11_logicFaultIsAlertOnly();
     void testF12_commandedOffStopsUndervoltageCheck();
     void testF13_parkedPowerStateIsApplied();
+    void testF14_exemptWheelNeverTrips();
+    void testF15_nonExemptWheelStillTrips();
+    void testF16_multipleExemptionsAndUnexempt();
 
   private:
     void connectPorts();
@@ -49,6 +52,7 @@ class FPManagerTester final : public FPManagerGTestBase {
     void clearFault(Billee::Subsystems subsystem, U32 cmdSeq);
     bool faulted(Billee::Subsystems subsystem);
     void drain();
+    void exempt(bool d1, bool d2, bool d3, bool d4, bool d5, bool d6);
 
     FPManager component;
 };

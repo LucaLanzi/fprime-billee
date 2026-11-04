@@ -25,6 +25,9 @@ FP_TEST(F10_ThermalFaultTripsFailureIsAlertOnly, testF10_thermalFaultTripsFailur
 FP_TEST(F11_LogicFaultIsAlertOnly, testF11_logicFaultIsAlertOnly)
 FP_TEST(F12_CommandedOffStopsUndervoltageCheck, testF12_commandedOffStopsUndervoltageCheck)
 FP_TEST(F13_ParkedPowerStateIsApplied, testF13_parkedPowerStateIsApplied)
+FP_TEST(F14_ExemptWheelNeverTrips, testF14_exemptWheelNeverTrips)
+FP_TEST(F15_NonExemptWheelStillTrips, testF15_nonExemptWheelStillTrips)
+FP_TEST(F16_MultipleExemptionsAndUnexempt, testF16_multipleExemptionsAndUnexempt)
 
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);

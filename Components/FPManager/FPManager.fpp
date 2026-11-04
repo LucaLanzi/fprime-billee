@@ -18,7 +18,8 @@ module Billee {
         # FPManager re-sends a fault on every out-of-bounds sample until the latch is set.
         # ----------------------------------------------------------------------
 
-        @ Fault latch for the drivetrain subsystem (any of the six wheel sensors trips all six)
+        @ Fault latch for the drivetrain subsystem (any non-exempt wheel sensor trips all six;
+        @ see EXEMPT_DRIVETRAIN_SENSOR)
         state machine instance fp_drivetrainSM: FPStateMachine drop
 
         @ Fault latch for the arm subsystem
@@ -111,6 +112,11 @@ module Billee {
         @ Consecutive FAULT-level thermal samples (1 Hz) before an overtemperature fault
         param DEBOUNCE_THERMAL: U8 default 2 id 0x18 set opcode 0x20 save opcode 0x21
 
+        @ Drivetrain wheel sensors FPManager ignores (index 0 = DRIVE1 ... 5 = DRIVE6). Use for a
+        @ wheel whose INA780B is broken so it can't trip the whole drivetrain. An exempt wheel has
+        @ NO over/undervoltage or overcurrent protection; only the drive thermal sensor still covers it.
+        param EXEMPT_DRIVETRAIN_SENSOR: Billee.DriveSensorExemptions id 0x19 set opcode 0x22 save opcode 0x23
+
         # ----------------------------------------------------------------------
         # Telemetry: bounds in effect per subsystem
         # ----------------------------------------------------------------------
@@ -129,6 +135,9 @@ module Billee {
 
         @ Readings dropped because the FPManager queue was full (should stay 0)
         telemetry FpReadingsDropped: U32 id 0x14
+
+        @ Drivetrain wheel sensors currently exempted from fault protection
+        telemetry DRIVETRAIN_EXEMPTIONS: Billee.DriveSensorExemptions id 0x15
 
         # ----------------------------------------------------------------------
         # Telemetry: latched fault state per subsystem
@@ -262,6 +271,14 @@ module Billee {
             severity warning high \
             id 9 \
             format "FPManager queue full: sensor readings dropped"
+
+        @ The set of exempted drivetrain wheel sensors changed (EXEMPT_DRIVETRAIN_SENSOR)
+        event DrivetrainExemptionsChanged(
+            exempt: Billee.DriveSensorExemptions
+        ) \
+            severity warning low \
+            id 10 \
+            format "Drivetrain FP exemptions (DRIVE1..DRIVE6) now {}; exempt wheels are not fault-checked"
 
         ###############################################################################
         # Standard AC Ports: Required for Channels, Events, Commands, and Parameters  #

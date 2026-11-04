@@ -29,6 +29,7 @@ class FPManager final : public FPManagerComponentBase {
     enum SubIndex : U8 { SUB_DRIVETRAIN = 0, SUB_ARM = 1, SUB_SCIENCE = 2, SUB_LOGIC = 3, NUM_SUBS = 4 };
     static constexpr U8 NUM_INA = 9;  //!< InaSensorId 1..9
     static constexpr U8 NUM_MCP = 3;  //!< McpSensorId 1..3
+    static constexpr U8 NUM_WHEELS = 6;  //!< InaSensorId DRIVE1..DRIVE6 (m_sensor indices 0..5)
 
     // ----------------------------------------------------------------------
     // Handler implementations for typed input ports
@@ -128,6 +129,8 @@ class FPManager final : public FPManagerComponentBase {
     U8 m_debounceOv = 3;
     U8 m_debounceUv = 5;
     U8 m_debounceThermal = 2;
+    bool m_driveExempt[NUM_WHEELS] = {false, false, false, false, false, false};
+    Billee::DriveSensorExemptions m_driveExemptions;  //!< Same set, as the param/telemetry type
 
     //! Power-state changes parked by powerStateIn_overflowHook (sender thread):
     //! 0 = none, 1 = OFF, 2 = ON. Single-byte writes; applied on FPManager's thread.

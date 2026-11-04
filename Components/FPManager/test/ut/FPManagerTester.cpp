@@ -101,6 +101,13 @@ void FPManagerTester ::clearFault(Billee::Subsystems subsystem, U32 cmdSeq) {
     this->drain();
 }
 
+void FPManagerTester ::exempt(bool d1, bool d2, bool d3, bool d4, bool d5, bool d6) {
+    Billee::DriveSensorExemptions e({d1, d2, d3, d4, d5, d6});
+    this->paramSet_EXEMPT_DRIVETRAIN_SENSOR(e, Fw::ParamValid::VALID);
+    this->paramSend_EXEMPT_DRIVETRAIN_SENSOR(0, 0);
+    this->drain();
+}
+
 bool FPManagerTester ::faulted(Billee::Subsystems subsystem) {
     U8 sub = 0;
     if (!FPManager::subIndexFor(subsystem, sub)) {
@@ -351,6 +358,78 @@ void FPManagerTester ::testF13_parkedPowerStateIsApplied() {
     ASSERT_from_faultInhibitOut_SIZE(0);
     ASSERT_FALSE(this->faulted(Billee::Subsystems::DRIVETRAIN));
     ASSERT_TLM_FpReadingsDropped_SIZE(1);
+}
+
+// F14: an exempt wheel (busted INA780B reading 0 V / garbage) never trips the drivetrain
+void FPManagerTester ::testF14_exemptWheelNeverTrips() {
+    this->exempt(false, false, true, false, false, false);
+    ASSERT_EVENTS_DrivetrainExemptionsChanged_SIZE(1);
+    ASSERT_EVENTS_DrivetrainExemptionsChanged(
+        0, Billee::DriveSensorExemptions({false, false, true, false, false, false}));
+
+    this->powerState(Billee::Subsystems::DRIVETRAIN, Fw::On::ON);
+    this->at(1005.0);
+    this->clearHistory();
+    for (U32 n = 0; n < 20; n++) {
+        this->reading(Billee::InaSensorId::DRIVE3, 0.0f, 50.0f);
+        this->reading(Billee::InaSensorId::DRIVE1, 14.8f, 2.0f);
+    }
+    ASSERT_from_faultInhibitOut_SIZE(0);
+    ASSERT_EVENTS_SubsystemFaultShutdown_SIZE(0);
+    ASSERT_EVENTS_PowerFaultDetail_SIZE(0);
+    ASSERT_FALSE(this->faulted(Billee::Subsystems::DRIVETRAIN));
+    ASSERT_TLM_DRIVE3_POWER_STATE(19, Billee::FaultState::EXEMPT);
+    ASSERT_TLM_DRIVE1_POWER_STATE(19, Billee::FaultState::NOMINAL);
+
+    // Cycling the drivetrain OFF/ON doesn't trip either
+    this->powerState(Billee::Subsystems::DRIVETRAIN, Fw::On::OFF);
+    this->powerState(Billee::Subsystems::DRIVETRAIN, Fw::On::ON);
+    this->at(1010.0);
+    for (U32 n = 0; n < 20; n++) {
+        this->reading(Billee::InaSensorId::DRIVE3, 0.0f, 0.0f);
+    }
+    ASSERT_FALSE(this->faulted(Billee::Subsystems::DRIVETRAIN));
+}
+
+// F15: the other wheels keep full protection while one is exempt
+void FPManagerTester ::testF15_nonExemptWheelStillTrips() {
+    this->exempt(false, false, true, false, false, false);
+    this->powerState(Billee::Subsystems::DRIVETRAIN, Fw::On::ON);
+    this->at(1002.0);
+    for (U32 n = 0; n < 3; n++) {
+        this->reading(Billee::InaSensorId::DRIVE1, 14.8f, 31.0f);
+    }
+    ASSERT_TRUE(this->faulted(Billee::Subsystems::DRIVETRAIN));
+    ASSERT_EVENTS_PowerFaultDetail(0, Billee::InaSensorId::DRIVE1, Billee::FaultReason::OVERCURRENT, 14.8f, 31.0f);
+    ASSERT_EVENTS_SubsystemFaultShutdown(0, Billee::Subsystems::DRIVETRAIN, Billee::FaultReason::OVERCURRENT);
+}
+
+// F16: several wheels can be exempt at once, and removing an exemption restores checking
+void FPManagerTester ::testF16_multipleExemptionsAndUnexempt() {
+    this->exempt(false, true, false, false, true, false);
+    this->powerState(Billee::Subsystems::DRIVETRAIN, Fw::On::ON);
+    this->at(1005.0);
+    for (U32 n = 0; n < 10; n++) {
+        this->reading(Billee::InaSensorId::DRIVE2, 0.0f, 0.0f);
+        this->reading(Billee::InaSensorId::DRIVE5, 20.0f, 40.0f);
+    }
+    ASSERT_FALSE(this->faulted(Billee::Subsystems::DRIVETRAIN));
+
+    // Setting the same set again is not a change
+    this->clearHistory();
+    this->exempt(false, true, false, false, true, false);
+    ASSERT_EVENTS_DrivetrainExemptionsChanged_SIZE(0);
+
+    this->clearHistory();
+    this->exempt(false, false, false, false, true, false);
+    ASSERT_EVENTS_DrivetrainExemptionsChanged_SIZE(1);
+    ASSERT_TLM_DRIVETRAIN_EXEMPTIONS(
+        0, Billee::DriveSensorExemptions({false, false, false, false, true, false}));
+    for (U32 n = 0; n < 5; n++) {
+        this->reading(Billee::InaSensorId::DRIVE2, 0.0f, 0.0f);
+    }
+    ASSERT_TRUE(this->faulted(Billee::Subsystems::DRIVETRAIN));
+    ASSERT_EVENTS_SubsystemFaultShutdown(0, Billee::Subsystems::DRIVETRAIN, Billee::FaultReason::UNDERVOLTAGE);
 }
 
 }  // namespace Billee

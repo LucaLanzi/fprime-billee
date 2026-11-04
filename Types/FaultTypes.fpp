@@ -4,6 +4,7 @@ module Billee {
         NOMINAL = 0 @< No active fault condition
         TRIPPED = 1 @< A fault condition is latched (subsystem inhibited, if controllable) until CLEAR_FAULT
         STALE = 2 @< Per-sensor only: the sensor is not returning valid readings, so it is not being evaluated
+        EXEMPT = 3 @< Per-sensor only: exempted by fpManager.EXEMPT_DRIVETRAIN_SENSOR, so it is not being evaluated
     }
 
     enum FaultReason: U8 {

@@ -63,6 +63,15 @@ void FPManager ::powerReadingIn_handler(FwIndexType portNum,
         this->publishThresholdTelemetry();
     }
 
+    // Exempt wheel (EXEMPT_DRIVETRAIN_SENSOR): never evaluated, never contributes to the latch
+    if (sub == SUB_DRIVETRAIN && raw <= NUM_WHEELS && this->m_driveExempt[raw - 1]) {
+        eval.oc = 0;
+        eval.ov = 0;
+        eval.uv = 0;
+        this->writeSensorStateTelemetry(sensorId, Billee::FaultState::EXEMPT);
+        return;
+    }
+
     if (!reading.get_valid()) {
         // Sensor loss is alert-only (InaManager reports it). Never evaluate stale/zeroed values.
         eval.oc = 0;
@@ -291,6 +300,24 @@ void FPManager ::loadParams() {
     this->m_debounceOv = this->paramGet_DEBOUNCE_OV(valid);
     this->m_debounceUv = this->paramGet_DEBOUNCE_UV(valid);
     this->m_debounceThermal = this->paramGet_DEBOUNCE_THERMAL(valid);
+
+    const Billee::DriveSensorExemptions exempt = this->paramGet_EXEMPT_DRIVETRAIN_SENSOR(valid);
+    bool changed = false;
+    for (U8 i = 0; i < NUM_WHEELS; i++) {
+        const bool e = exempt[i];
+        if (e != this->m_driveExempt[i]) {
+            changed = true;
+            this->m_driveExempt[i] = e;
+            // Clean slate either way: no stale debounce evidence carried across the change
+            this->m_sensor[i].oc = 0;
+            this->m_sensor[i].ov = 0;
+            this->m_sensor[i].uv = 0;
+        }
+    }
+    this->m_driveExemptions = exempt;
+    if (changed) {
+        this->log_WARNING_LO_DrivetrainExemptionsChanged(exempt);
+    }
     this->publishThresholdTelemetry();
 }
 
@@ -509,6 +536,7 @@ void FPManager ::publishThresholdTelemetry() {
     this->tlmWrite_ARM_POWER_BOUNDS(this->m_bounds[SUB_ARM]);
     this->tlmWrite_SCIENCE_POWER_BOUNDS(this->m_bounds[SUB_SCIENCE]);
     this->tlmWrite_LOGIC_POWER_BOUNDS(this->m_bounds[SUB_LOGIC]);
+    this->tlmWrite_DRIVETRAIN_EXEMPTIONS(this->m_driveExemptions);
 }
 
 }  // namespace Billee
