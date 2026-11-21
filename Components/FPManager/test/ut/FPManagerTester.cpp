@@ -159,17 +159,17 @@ void FPManagerTester ::testF3_undervoltageGatedBySettleAndDebounced() {
     ASSERT_TRUE(this->faulted(Billee::Subsystems::DRIVETRAIN));
 }
 
-// F4: overcurrent on one wheel (default 30 A) trips the whole drivetrain, once
+// F4: overcurrent on one wheel (default 100 A) trips the whole drivetrain, once
 void FPManagerTester ::testF4_overcurrentTripsWholeDrivetrain() {
     this->powerState(Billee::Subsystems::DRIVETRAIN, Fw::On::ON);
     this->at(1002.0);
     for (U32 n = 0; n < 10; n++) {
-        this->reading(Billee::InaSensorId::DRIVE4, 14.8f, 29.9f);
+        this->reading(Billee::InaSensorId::DRIVE4, 14.8f, 99.9f);
     }
     ASSERT_from_faultInhibitOut_SIZE(0);
 
     for (U32 n = 0; n < 3; n++) {
-        this->reading(Billee::InaSensorId::DRIVE4, 14.8f, 31.0f);
+        this->reading(Billee::InaSensorId::DRIVE4, 14.8f, 101.0f);
     }
     ASSERT_from_faultInhibitOut_SIZE(1);
     ASSERT_from_faultInhibitOut(0, Billee::Subsystems::DRIVETRAIN, true);
@@ -208,7 +208,7 @@ void FPManagerTester ::testF5_otherWheelsDoNotClearLatchedFault() {
     this->allWheels(14.8f, 0.0f, 10);
     this->allWheels(0.0f, 0.0f, 10);
     for (U32 n = 0; n < 5; n++) {
-        this->reading(Billee::InaSensorId::DRIVE4, 14.8f, 31.0f);
+        this->reading(Billee::InaSensorId::DRIVE4, 14.8f, 101.0f);
     }
     ASSERT_TRUE(this->faulted(Billee::Subsystems::DRIVETRAIN));
     ASSERT_from_faultInhibitOut_SIZE(0);  // no release, no second inhibit
@@ -238,7 +238,7 @@ void FPManagerTester ::testF6_clearFaultReleasesInhibit() {
     this->powerState(Billee::Subsystems::DRIVETRAIN, Fw::On::ON);
     this->at(1010.0);
     for (U32 n = 0; n < 3; n++) {
-        this->reading(Billee::InaSensorId::DRIVE1, 14.8f, 31.0f);
+        this->reading(Billee::InaSensorId::DRIVE1, 14.8f, 101.0f);
     }
     ASSERT_TRUE(this->faulted(Billee::Subsystems::DRIVETRAIN));
 }
@@ -286,10 +286,10 @@ void FPManagerTester ::testF9_armBoundsAndUndervoltage() {
     }
     ASSERT_from_faultInhibitOut_SIZE(0);
     for (U32 n = 0; n < 4; n++) {
-        this->reading(Billee::InaSensorId::ARM, 21.4f, 3.0f);
+        this->reading(Billee::InaSensorId::ARM, 20.2f, 3.0f);
     }
     ASSERT_from_faultInhibitOut_SIZE(0);
-    this->reading(Billee::InaSensorId::ARM, 21.4f, 3.0f);
+    this->reading(Billee::InaSensorId::ARM, 20.2f, 3.0f);
     ASSERT_from_faultInhibitOut(0, Billee::Subsystems::ARM, true);
     ASSERT_EVENTS_SubsystemFaultShutdown(0, Billee::Subsystems::ARM, Billee::FaultReason::UNDERVOLTAGE);
     ASSERT_FALSE(this->faulted(Billee::Subsystems::DRIVETRAIN));
@@ -320,7 +320,7 @@ void FPManagerTester ::testF10_thermalFaultTripsFailureIsAlertOnly() {
 // F11: logic faults are alert-only and never inhibit anything
 void FPManagerTester ::testF11_logicFaultIsAlertOnly() {
     for (U32 n = 0; n < 3; n++) {
-        this->reading(Billee::InaSensorId::LOGIC, 22.2f, 31.0f);
+        this->reading(Billee::InaSensorId::LOGIC, 22.2f, 101.0f);
     }
     ASSERT_TRUE(this->faulted(Billee::Subsystems::LOGIC));
     ASSERT_EVENTS_LogicFaultDetected_SIZE(1);
@@ -329,7 +329,7 @@ void FPManagerTester ::testF11_logicFaultIsAlertOnly() {
     // Logic undervoltage is checked without any power-state gating (it measures its own battery)
     FPManagerTester fresh;
     for (U32 n = 0; n < 5; n++) {
-        fresh.reading(Billee::InaSensorId::LOGIC, 21.0f, 2.0f);
+        fresh.reading(Billee::InaSensorId::LOGIC, 20.2f, 2.0f);
     }
     ASSERT_TRUE(fresh.faulted(Billee::Subsystems::LOGIC));
 }
@@ -397,10 +397,10 @@ void FPManagerTester ::testF15_nonExemptWheelStillTrips() {
     this->powerState(Billee::Subsystems::DRIVETRAIN, Fw::On::ON);
     this->at(1002.0);
     for (U32 n = 0; n < 3; n++) {
-        this->reading(Billee::InaSensorId::DRIVE1, 14.8f, 31.0f);
+        this->reading(Billee::InaSensorId::DRIVE1, 14.8f, 101.0f);
     }
     ASSERT_TRUE(this->faulted(Billee::Subsystems::DRIVETRAIN));
-    ASSERT_EVENTS_PowerFaultDetail(0, Billee::InaSensorId::DRIVE1, Billee::FaultReason::OVERCURRENT, 14.8f, 31.0f);
+    ASSERT_EVENTS_PowerFaultDetail(0, Billee::InaSensorId::DRIVE1, Billee::FaultReason::OVERCURRENT, 14.8f, 101.0f);
     ASSERT_EVENTS_SubsystemFaultShutdown(0, Billee::Subsystems::DRIVETRAIN, Billee::FaultReason::OVERCURRENT);
 }
 

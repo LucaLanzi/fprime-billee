@@ -64,35 +64,37 @@ module Billee {
         ) opcode 0x30
 
         # ----------------------------------------------------------------------
-        # Parameters (defaults set by Luca 2026-09-26; 30 A current limits are deliberately high
-        # for initial testing). Ids/opcodes start at 0x10 so they can never collide with the
+        # Parameters (defaults set by Luca 2026-11-21: 35 V overvoltage and 100 A overcurrent on
+        # every subsystem, deliberately loose; undervoltage 13.6 V drivetrain, 20.4 V elsewhere).
+        # These defaults only apply while no saved value exists: a PRM_SAVE_FILE'd value in
+        # /lfs/PrmDb.dat overrides them at every boot. Ids/opcodes start at 0x10 so they can never collide with the
         # old F32 VBUS_FAULT_LOW/HIGH/CURRENT_FAULT_HIGH params (ids 0-2) in a saved param file.
         # ----------------------------------------------------------------------
 
         @ Drivetrain bounds, 4S pack. currentFaultHigh applies to each wheel sensor individually.
         param DRIVETRAIN_BOUNDS: Billee.PowerBounds \
-            default {vbusFaultLow = 13.6, vbusFaultHigh = 17.2, currentFaultHigh = 30.0} \
+            default {vbusFaultLow = 13.6, vbusFaultHigh = 35.0, currentFaultHigh = 100.0} \
             id 0x10 \
             set opcode 0x10 \
             save opcode 0x11
 
         @ Arm bounds, 6S pack
         param ARM_BOUNDS: Billee.PowerBounds \
-            default {vbusFaultLow = 21.6, vbusFaultHigh = 25.5, currentFaultHigh = 30.0} \
+            default {vbusFaultLow = 20.4, vbusFaultHigh = 35.0, currentFaultHigh = 100.0} \
             id 0x11 \
             set opcode 0x12 \
             save opcode 0x13
 
         @ Science bounds, 6S pack
         param SCIENCE_BOUNDS: Billee.PowerBounds \
-            default {vbusFaultLow = 21.6, vbusFaultHigh = 25.5, currentFaultHigh = 30.0} \
+            default {vbusFaultLow = 20.4, vbusFaultHigh = 35.0, currentFaultHigh = 100.0} \
             id 0x12 \
             set opcode 0x14 \
             save opcode 0x15
 
         @ Logic board bounds, 6S pack (alert-only)
         param LOGIC_BOUNDS: Billee.PowerBounds \
-            default {vbusFaultLow = 21.6, vbusFaultHigh = 25.5, currentFaultHigh = 30.0} \
+            default {vbusFaultLow = 20.4, vbusFaultHigh = 35.0, currentFaultHigh = 100.0} \
             id 0x13 \
             set opcode 0x16 \
             save opcode 0x17
