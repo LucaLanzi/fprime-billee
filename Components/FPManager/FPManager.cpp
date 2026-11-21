@@ -302,9 +302,11 @@ void FPManager ::loadParams() {
     this->m_debounceThermal = this->paramGet_DEBOUNCE_THERMAL(valid);
 
     const Billee::DriveSensorExemptions exempt = this->paramGet_EXEMPT_DRIVETRAIN_SENSOR(valid);
+    const bool exemptByWheel[NUM_WHEELS] = {exempt.get_DRIVE1(), exempt.get_DRIVE2(), exempt.get_DRIVE3(),
+                                            exempt.get_DRIVE4(), exempt.get_DRIVE5(), exempt.get_DRIVE6()};
     bool changed = false;
     for (U8 i = 0; i < NUM_WHEELS; i++) {
-        const bool e = exempt[i];
+        const bool e = exemptByWheel[i];
         if (e != this->m_driveExempt[i]) {
             changed = true;
             this->m_driveExempt[i] = e;

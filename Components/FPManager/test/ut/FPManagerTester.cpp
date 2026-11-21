@@ -102,7 +102,7 @@ void FPManagerTester ::clearFault(Billee::Subsystems subsystem, U32 cmdSeq) {
 }
 
 void FPManagerTester ::exempt(bool d1, bool d2, bool d3, bool d4, bool d5, bool d6) {
-    Billee::DriveSensorExemptions e({d1, d2, d3, d4, d5, d6});
+    Billee::DriveSensorExemptions e(d1, d2, d3, d4, d5, d6);
     this->paramSet_EXEMPT_DRIVETRAIN_SENSOR(e, Fw::ParamValid::VALID);
     this->paramSend_EXEMPT_DRIVETRAIN_SENSOR(0, 0);
     this->drain();
@@ -365,7 +365,7 @@ void FPManagerTester ::testF14_exemptWheelNeverTrips() {
     this->exempt(false, false, true, false, false, false);
     ASSERT_EVENTS_DrivetrainExemptionsChanged_SIZE(1);
     ASSERT_EVENTS_DrivetrainExemptionsChanged(
-        0, Billee::DriveSensorExemptions({false, false, true, false, false, false}));
+        0, Billee::DriveSensorExemptions(false, false, true, false, false, false));
 
     this->powerState(Billee::Subsystems::DRIVETRAIN, Fw::On::ON);
     this->at(1005.0);
@@ -424,7 +424,7 @@ void FPManagerTester ::testF16_multipleExemptionsAndUnexempt() {
     this->exempt(false, false, false, false, true, false);
     ASSERT_EVENTS_DrivetrainExemptionsChanged_SIZE(1);
     ASSERT_TLM_DRIVETRAIN_EXEMPTIONS(
-        0, Billee::DriveSensorExemptions({false, false, false, false, true, false}));
+        0, Billee::DriveSensorExemptions(false, false, false, false, true, false));
     for (U32 n = 0; n < 5; n++) {
         this->reading(Billee::InaSensorId::DRIVE2, 0.0f, 0.0f);
     }

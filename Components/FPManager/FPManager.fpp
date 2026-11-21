@@ -112,7 +112,7 @@ module Billee {
         @ Consecutive FAULT-level thermal samples (1 Hz) before an overtemperature fault
         param DEBOUNCE_THERMAL: U8 default 2 id 0x18 set opcode 0x20 save opcode 0x21
 
-        @ Drivetrain wheel sensors FPManager ignores (index 0 = DRIVE1 ... 5 = DRIVE6). Use for a
+        @ Drivetrain wheel sensors FPManager ignores (one field per wheel, DRIVE1..DRIVE6). Use for a
         @ wheel whose INA780B is broken so it can't trip the whole drivetrain. An exempt wheel has
         @ NO over/undervoltage or overcurrent protection; only the drive thermal sensor still covers it.
         param EXEMPT_DRIVETRAIN_SENSOR: Billee.DriveSensorExemptions id 0x19 set opcode 0x22 save opcode 0x23

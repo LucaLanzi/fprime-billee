@@ -30,9 +30,16 @@ module Billee {
         currentFaultHigh: F32 @< Overcurrent fault threshold in amps, per sensor (applied as +/-)
     }
 
-    @ Per-wheel fault-protection exemptions for FPManager, index 0 = DRIVE1 ... index 5 = DRIVE6.
-    @ true = FPManager ignores that wheel's INA780B entirely (no OC/OV/UV evaluation).
-    array DriveSensorExemptions = [6] bool default [false, false, false, false, false, false]
+    @ Per-wheel fault-protection exemptions for FPManager, one field per wheel (DRIVE1..DRIVE6,
+    @ matching InaSensorId). true = FPManager ignores that wheel's INA780B entirely (no OC/OV/UV evaluation).
+    struct DriveSensorExemptions {
+        DRIVE1: bool @< Exempt drivetrain wheel 1
+        DRIVE2: bool @< Exempt drivetrain wheel 2
+        DRIVE3: bool @< Exempt drivetrain wheel 3
+        DRIVE4: bool @< Exempt drivetrain wheel 4
+        DRIVE5: bool @< Exempt drivetrain wheel 5
+        DRIVE6: bool @< Exempt drivetrain wheel 6
+    } default {DRIVE1 = false, DRIVE2 = false, DRIVE3 = false, DRIVE4 = false, DRIVE5 = false, DRIVE6 = false}
 
     @ Broadcasts a single sensor's power reading, tagged with the subsystem it belongs to.
     @ Used by InaManager to forward readings to FPManager.
